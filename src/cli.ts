@@ -3,6 +3,7 @@
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
+import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
 import { loadSettings, saveSettings } from "./settings.js";
 import { createWorkspace, jobsCsvPath, workspaceExists } from "./workspace.js";
@@ -51,6 +52,26 @@ async function requireWorkspace(): Promise<string> {
   }
   console.log("No workspace set up yet, running init first.");
   return runInit();
+}
+
+// Runs a CSV write; while the file is locked, asks the user to close it and retry.
+// Returns false if the user cancels.
+async function withCsvRetry(write: () => Promise<void>): Promise<boolean> {
+  while (true) {
+    try {
+      await write();
+      return true;
+    } catch (err) {
+      if (!(err instanceof CsvLockedError)) throw err;
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await rl.question(
+        `${path.basename(err.csvPath)} is open in another program (Excel?). ` +
+          "Close it and press Enter to retry, or type q to cancel: ",
+      );
+      rl.close();
+      if (answer.trim().toLowerCase() === "q") return false;
+    }
+  }
 }
 
 // "~/jobs" -> "/home/amit/jobs" (the shell does this, but not inside a prompt).
