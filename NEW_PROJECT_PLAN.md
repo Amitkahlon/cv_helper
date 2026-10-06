@@ -67,9 +67,8 @@ Everything for one user lives in one folder (path set in config), separate from 
     example_cv.pdf         the user's current CV, used to seed the profile and the style
     cvs/                   predefined CVs (only in "predefined" mode) + cvs.yaml describing each
   jobs/
-    <id>/                  one folder per job, ASCII-only name (see 9.6)
-      job.md               full posting text as scraped
-      job.json             structured data: title, company, requirements list, metadata
+    <id>/                  one folder per job, ASCII-only name (see 9.6), e.g. linkedin-4475368276
+      job.json             scraped details, full description, and the AI-filled requirements object
       <Name>_CV.pdf        the CV for this job
       checklist.md         requirements met / not met, score, what was adapted
 ```
@@ -110,7 +109,9 @@ requirements live in `jobs/<id>/`.
 | `source_job_id` | add | the site's own job id, may be empty |
 
 `id` is always generated (the user's "job id can be empty" applies to `source_job_id`): folders,
-commands and duplicate checks need a stable key even when a site has no id.
+commands and duplicate checks need a stable key even when a site has no id. Format:
+`<site>-<site job id>` (e.g. `linkedin-4475368276`); sites without an id get a short code derived from
+the link.
 
 ### Status tracking (decided)
 
@@ -161,28 +162,41 @@ Order of preference when fetching:
    b. the description block if one is marked, else
    c. the page's readable text, sent to the AI to pull out title, company, description, requirements.
 
-### Requirements extraction — one structured list, used everywhere
+### Job details and requirements — one `job.json`, used everywhere
 
-After fetching, every job (whatever the source) goes through one AI step that turns the posting into
-`job.json`:
+When a job is added, its scraped details and full description go into `jobs/<id>/job.json`, with
+`requirements` set to `null`. Then every job (whatever the source) goes through one AI step that reads
+the description and fills `requirements`:
 
 ```json
 {
-  "title": "...", "company": "...", "location": "...", "work_model": "onsite|hybrid|remote",
-  "employment_type": "full-time|part-time|student|internship|contract|temporary",
-  "seniority": "entry|junior|mid|senior|lead", "min_years_experience": 2,
-  "field": "short label, e.g. 'software QA', 'accounting', 'nursing'",
-  "must_have": [{"id": "R1", "text": "2+ years with SQL"}, ...],
-  "nice_to_have": [{"id": "N1", "text": "Experience with Azure"}, ...],
-  "language_requirements": ["Hebrew", "English"],
-  "asks_for_attachments": ["transcript", "portfolio"]
+  "id": "linkedin-4475368276", "source": "linkedin", "source_job_id": "4475368276",
+  "job_link": "...", "agency_link": null, "first_seen": "2026-10-06",
+  "title": "...", "company": "...", "location": "...", "posted_date": "2026-10-04",
+  "closed": false, "employment_type": "Full-time", "seniority": "Entry level",
+  "description": "full posting text as scraped",
+
+  "requirements": {
+    "work_model": "onsite|hybrid|remote",
+    "employment_type": "full-time|part-time|student|internship|contract|temporary",
+    "seniority": "entry|junior|mid|senior|lead", "min_years_experience": 2,
+    "field": "short label, e.g. 'software QA', 'accounting', 'nursing'",
+    "must_have": [{"id": "R1", "text": "2+ years with SQL"}, ...],
+    "nice_to_have": [{"id": "N1", "text": "Experience with Azure"}, ...],
+    "language_requirements": ["Hebrew", "English"],
+    "asks_for_attachments": ["transcript", "portfolio"]
+  }
 }
 ```
 
+The top-level fields are what the site gave, as-is; `requirements` is filled by the AI (with normalized
+values) and can be redone without fetching the job again. The AI step also writes the short
+`;`-separated must-have summary to the CSV's `requirements` column.
+
 This one extraction feeds three things: the filters (employment type, field, seniority, years), the
 score (`must_have`), and the CV builder, which gets the requirements and metadata instead of the full
-description — the user's idea of keeping context small. The builder may still read `job.md` when the
-structured data is thin (some postings are one line).
+description — the user's idea of keeping context small. The builder may still read the full
+`description` when the structured data is thin (some postings are one line).
 
 ### Duplicate check
 
@@ -392,7 +406,8 @@ with a saved sample page as a test fixture. Description-similarity repost detect
 2. **Requirements** — extracted once, when a job is added, into a structured list (must-have,
    nice-to-have, details) in `jobs/<id>/job.json`; it drives the filters, the score and the CV builder
    (section 5).
-3. **Long text** — short requirements summary in the CSV; full posting in `jobs/<id>/job.md` (section 3).
+3. **Long text** — short requirements summary in the CSV; full posting, scraped details and the
+   requirements object in one `jobs/<id>/job.json` (sections 3 and 5).
 4. **Duplicate check** — normalized links (tracking parameters removed, known sites reduced to their job
    id), compared with both `job_link` and `agency_link`. Description-similarity check in a later phase.
 5. **All jobs in the CSV** — closed, filtered and repost jobs are rows with the reason in `filter`; the
@@ -403,6 +418,7 @@ with a saved sample page as a test fixture. Description-similarity repost detect
    links per link.
 8. **AI service** — Claude Code CLI for version 1.
 9. **Language** — TypeScript on Node.js (section 2).
+10. **Job id** — `<site>-<site job id>`, e.g. `linkedin-4475368276`; also the folder name (section 4).
 
 **Open**
 

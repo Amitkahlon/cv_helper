@@ -24,6 +24,11 @@ export function settingsPath(): string {
   return path.join(settingsDir(), "settings.json");
 }
 
+// cvhelper's own browser profile; site logins (e.g. HireMe) are remembered here.
+export function browserProfileDir(): string {
+  return path.join(settingsDir(), "browser");
+}
+
 // Returns undefined when there are no settings yet or the file can't be used.
 export async function loadSettings(): Promise<Settings | undefined> {
   try {
