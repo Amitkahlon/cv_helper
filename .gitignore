@@ -1,0 +1,11 @@
+# Environment / secrets
+.env
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local user workspace (job data, CVs, profile), in case it's placed inside the repo
+workspace/
