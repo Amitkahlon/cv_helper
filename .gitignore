@@ -1,3 +1,7 @@
+# Node
+node_modules/
+dist/
+
 # Environment / secrets
 .env
 

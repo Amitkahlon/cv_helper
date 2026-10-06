@@ -35,18 +35,21 @@ CLI as a thin layer on top, so a UI or extension can reuse it later.
 
 ## 2. Tech choices
 
-- **Python 3.11+**, installed as a package with one command entry point (e.g. `cvhelper`), so the user
-  never types `.venv/bin/python script.py`. `pipx install .` or `pip install -e .` on both OSes.
+- **TypeScript on Node.js (current LTS)**, installed as a package with one command entry point (e.g.
+  `cvhelper`, via the `bin` field in `package.json`), so the user never types `node dist/script.js`.
+  `npm install -g .` or `npm link` on both OSes.
 - **Playwright** (headless Chromium) for pages that need JavaScript and for HTML → PDF rendering.
-- **pypdf** for page counting and merging attachments.
-- **Pydantic** for the job, requirement, profile and config schemas (also used as the AI output schema).
+- **pdf-lib** for page counting and merging attachments.
+- **Zod** for the job, requirement, profile and config schemas (also converted to JSON Schema for the
+  AI output schema).
+- **csv-parse / csv-stringify** for the tracker, **yaml** for config.
 - **YAML** for config; **CSV (UTF-8 with BOM)** for the tracker so Excel shows non-English text.
 - **AI provider behind a small interface.** Version 1 uses the **Claude Code CLI** in headless mode
   (`claude -p --output-format json --json-schema ... --tools ""`), which runs on the user's Claude
   subscription with no API key — the same approach the prototype used. Run it from a temporary folder
   so it only sees what is in the prompt. An Anthropic API implementation can be added later behind the
   same interface.
-- Standard library for everything else where reasonable.
+- Node's built-in modules for everything else where reasonable.
 
 ---
 
@@ -278,7 +281,7 @@ complicated.
 ### Rendering
 
 Start with one clean built-in template (HTML → PDF via headless Chromium), with font and accent colour
-in config. Check the page count with pypdf; if it overflows, shrink the font slightly, then ask the AI to
+in config. Check the page count with pdf-lib; if it overflows, shrink the font slightly, then ask the AI to
 cut. Matching the user's example CV's exact look automatically is a later improvement — v1 uses the
 example only for content and as a rough style reference.
 
@@ -308,8 +311,8 @@ Keys:
 Later: a way to record events without opening the CSV, e.g. `cvhelper event <id> interview [date]`
 (fills `interview_date`, today by default).
 
-Cross-platform: open folders with `os.startfile` on Windows, `xdg-open` on Linux (`open` on macOS);
-open links with the standard `webbrowser` module, optionally a new Chrome window per job.
+Cross-platform: open folders and links with the `open` package (it uses `start` on Windows, `xdg-open`
+on Linux, `open` on macOS), optionally a new Chrome window per job.
 
 ---
 
@@ -399,6 +402,7 @@ with a saved sample page as a test fixture. Description-similarity repost detect
 7. **One command** with subcommands: `init`, `add`, `build`, `apply`; `add` detects agency vs direct
    links per link.
 8. **AI service** — Claude Code CLI for version 1.
+9. **Language** — TypeScript on Node.js (section 2).
 
 **Open**
 

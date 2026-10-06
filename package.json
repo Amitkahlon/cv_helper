@@ -1,0 +1,20 @@
+{
+  "name": "cvhelper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "cvhelper": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^5"
+  }
+}
