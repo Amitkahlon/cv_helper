@@ -11,6 +11,7 @@ import {
   type JobRow,
 } from "./api";
 import { CvChoice } from "./CvChoice";
+import { CvSection } from "./CvSection";
 import { cvChoice, type CvEntry } from "./cvsApi";
 
 const isSubmitted = (job: JobRow) => (job.submitted ?? "").trim() !== "";
@@ -76,7 +77,8 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
     setStatus("");
     fetchDetails(job.id).then(setDetails, () => setDetails(null));
     run("Opening...", async () => {
-      if (job.cv_choice) await getCv(job.id, autoFolder);
+      // A ready-made CV can be copied right away; a tailored one only once it's built.
+      if (job.cv_choice?.startsWith("predefined:") || job.cv_status === "built") await getCv(job.id, autoFolder);
       if (autoLinks) await openLinks(job.id);
     });
   }, [job?.id, index, round]);
@@ -110,7 +112,16 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
       await updateJob(current.id, { cv_choice: choice });
       setQueue((q) => q!.map((j) => (j.id === current.id ? { ...j, cv_choice: choice } : j)));
       setCvPath("");
-      if (choice) await getCv(current.id, autoFolder);
+      if (choice.startsWith("predefined:")) await getCv(current.id, autoFolder);
+    });
+
+  // After a CV is built or the choice changes: refresh this job's row and get the new CV ready.
+  const refreshJob = (current: JobRow) =>
+    run("Updating...", async () => {
+      const fresh = (await fetchJobs()).find((j) => j.id === current.id);
+      if (!fresh) return;
+      setQueue((q) => q!.map((j) => (j.id === fresh.id ? fresh : j)));
+      if (fresh.cv_status === "built") await getCv(fresh.id, false);
     });
 
   const extract = (current: JobRow) =>
@@ -206,7 +217,7 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
         <CvChoice cvs={cvs} value={job.cv_choice ?? ""} onChange={(choice) => chooseCv(job, choice)} />{" "}
         {chosen?.purpose && <span className="hint">For: {chosen.purpose}</span>}
       </p>
-      {!job.cv_choice && <p className="hint">Choose a CV for this job (upload CVs in the CVs tab).</p>}
+      <CvSection job={job} onChanged={() => refreshJob(job)} />
       {cvPath && (
         <p>
           <code>{cvPath}</code>{" "}

@@ -7,6 +7,9 @@ import { openJobLinks, prepareJobCv, showInFolder } from "./apply.js";
 import { workspaceAi } from "./ai/default.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
 import { addCv, cvChoice, cvFilePath, deleteCv, loadCvs, saveCvs } from "./cvLibrary.js";
+import { buildCv, jobCvFile, jobsNeedingCv, loadCvReport, parseChoice, suggestCvChoice } from "./cvBuild.js";
+import type { JobRecord } from "./add.js";
+import type { Requirements } from "./requirements.js";
 import { today } from "./dates.js";
 import { CsvLockedError, readJobs, updateJob, type JobRow } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
@@ -30,6 +33,7 @@ export function createServer(initialWorkspace: string): express.Express {
   const app = express();
   app.use(express.json({ limit: "5mb" }));
   let adding = false; // one "add jobs" run at a time (it uses one browser profile)
+  let building = false; // one bulk CV build at a time
 
   app.get("/api/jobs", async (_req, res) => {
     res.json(await readJobs(csvPath));
@@ -50,11 +54,20 @@ export function createServer(initialWorkspace: string): express.Express {
     }
     if (typeof req.body?.cv_choice === "string") {
       const choice = req.body.cv_choice;
-      if (choice && !(await loadCvs(workspace)).some((cv) => cvChoice(cv.file) === choice)) {
+      const parsed = parseChoice(choice);
+      const known =
+        choice === "" ||
+        (parsed?.kind === "predefined" && (await loadCvs(workspace)).some((cv) => cvChoice(cv.file) === choice)) ||
+        (parsed?.kind === "tailored" && (parsed.role === "" || (await loadProfile(workspace)).roles.some((r) => r.name === parsed.role)));
+      if (!known) {
         res.status(400).json({ error: `Unknown CV choice: ${choice}` });
         return;
       }
-      changes.cv_choice = choice;
+      const row = (await readJobs(csvPath)).rows.find((r) => r.id === req.params.id);
+      if (row && row.cv_choice !== choice) {
+        // A different CV: the old build and score no longer apply.
+        Object.assign(changes, { cv_choice: choice, cv_status: "", score: "" });
+      }
     }
     try {
       await updateJob(csvPath, req.params.id, changes);
@@ -92,6 +105,84 @@ export function createServer(initialWorkspace: string): express.Express {
       res.json({ opened: await openJobLinks(workspace, req.params.id) });
     } catch (err) {
       res.status(400).json({ error: errorMessage(err) });
+    }
+  });
+
+  // --- CVs per job (phase 5) ---
+
+  // Body: { "instructions"?: "emphasise the SQL work" }. Answers with the CV report.
+  app.post("/api/jobs/:id/build-cv", async (req, res) => {
+    try {
+      const ai = await workspaceAi(workspace);
+      res.json(await buildCv(workspace, ai, req.params.id, { instructions: String(req.body?.instructions ?? "") }));
+    } catch (err) {
+      res.status(err instanceof CsvLockedError ? 409 : 500).json({ error: errorMessage(err) });
+    }
+  });
+
+  // Body: { "ids"?: [...] } (default: every job that needs a CV). Streams one
+  // JSON object per line as each CV is built.
+  app.post("/api/build", async (req, res) => {
+    if (building) {
+      res.status(409).json({ error: "Already building CVs; wait for that to finish." });
+      return;
+    }
+    building = true;
+    res.setHeader("Content-Type", "application/x-ndjson");
+    const send = (event: object) => res.write(JSON.stringify(event) + "\n");
+    try {
+      const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : await jobsNeedingCv(workspace);
+      send({ type: "start", count: ids.length });
+      const ai = await workspaceAi(workspace);
+      for (const id of ids) {
+        try {
+          const report = await buildCv(workspace, ai, id);
+          send({ type: "result", id, ok: true, score: report.score, choice: report.choice });
+        } catch (err) {
+          send({ type: "result", id, ok: false, error: errorMessage(err) });
+        }
+      }
+      send({ type: "done" });
+    } catch (err) {
+      send({ type: "error", error: errorMessage(err) });
+    } finally {
+      building = false;
+      res.end();
+    }
+  });
+
+  // Asks the AI which CV fits the job and saves it as the job's cv_choice.
+  app.post("/api/jobs/:id/suggest-cv", async (req, res) => {
+    const id = req.params.id;
+    try {
+      if (!SAFE_ID.test(id)) throw new Error("Bad job id");
+      const ai = await workspaceAi(workspace);
+      const job: JobRecord = JSON.parse(await readFile(jobJsonPath(workspace, id), "utf8"));
+      const requirements = (job.requirements as Requirements | null) ?? (await fillRequirements(workspace, ai, id));
+      const { roles } = await loadProfile(workspace);
+      const choice = await suggestCvChoice(ai, job, requirements, roles, await loadCvs(workspace));
+      await updateJob(csvPath, id, { cv_choice: choice, cv_status: "", score: "" });
+      res.json({ choice });
+    } catch (err) {
+      res.status(500).json({ error: errorMessage(err) });
+    }
+  });
+
+  // The CV report (checklist, score, what was adapted), or 404 if no CV was built.
+  app.get("/api/jobs/:id/cv-report", async (req, res) => {
+    const report = SAFE_ID.test(req.params.id) ? await loadCvReport(workspace, req.params.id) : null;
+    if (report) res.json(report);
+    else res.status(404).json({ error: "No CV built for this job yet" });
+  });
+
+  // The job's CV file itself (also used by the Chrome extension).
+  app.get("/api/jobs/:id/cv-file", async (req, res) => {
+    try {
+      const file = await jobCvFile(workspace, req.params.id);
+      if (!file) throw new Error("This job has no CV yet");
+      res.download(file, path.basename(file));
+    } catch (err) {
+      res.status(404).json({ error: errorMessage(err) });
     }
   });
 

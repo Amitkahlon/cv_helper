@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { extractRequirements, fetchDetails, type JobDetails, type JobRow } from "./api";
 import { CvChoice } from "./CvChoice";
+import { CvSection } from "./CvSection";
 import { cvChoice, cvUrl, type CvEntry } from "./cvsApi";
 
 // The panel for one job: its saved job.json if there is one, otherwise the tracker row.
@@ -70,6 +71,7 @@ export function Details({
           </a>
         )}
       </p>
+      <CvSection job={job} onChanged={onChanged} />
       {details && fact("Employment type", details.employment_type)}
       {details && fact("Seniority", details.seniority)}
       {details?.closed && <p className="error">This job is closed.</p>}

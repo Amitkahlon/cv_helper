@@ -4,6 +4,8 @@ import { CvsPage } from "./Cvs";
 import { fetchCvs, type CvEntry } from "./cvsApi";
 import { JobsPage } from "./Jobs";
 import { ProfilePage } from "./Profile";
+import { fetchProfile } from "./profileApi";
+import { RolesContext } from "./roles";
 import { SettingsPage } from "./Settings";
 
 const PAGES = { jobs: "Jobs", apply: "Apply", profile: "Profile", cvs: "CVs", settings: "Settings" } as const;
@@ -13,13 +15,20 @@ export function App() {
   const [page, setPage] = useState<Page>("jobs");
   const [cvs, setCvs] = useState<CvEntry[]>([]); // the CV library, shared by the pages
 
+  const [roles, setRoles] = useState<string[]>([]); // target role names, for tailored CV choices
+
   useEffect(() => {
     fetchCvs().then(setCvs, () => {});
   }, []);
 
+  // Roles may have changed on the Profile tab: reload them when switching pages.
+  useEffect(() => {
+    fetchProfile().then((data) => setRoles(data.roles.map((r) => r.name).filter(Boolean)), () => {});
+  }, [page]);
+
   // All pages stay mounted (just hidden), so switching keeps unsaved edits.
   return (
-    <>
+    <RolesContext.Provider value={roles}>
       <header className="app-header">
         <div className="brand">
           cv<span>helper</span>
@@ -49,6 +58,6 @@ export function App() {
           <SettingsPage />
         </div>
       </main>
-    </>
+    </RolesContext.Provider>
   );
 }

@@ -99,3 +99,10 @@ async function exists(file: string): Promise<boolean> {
     return false;
   }
 }
+
+// The file name employers see: "Amit_Kahlon_CV.pdf" (just "CV.pdf" if the
+// profile has no name in ASCII letters).
+export function cvFileName(personName: string, ext: string): string {
+  const owner = personName.trim() ? safeFileName(personName).replace(/ +/g, "_") : "";
+  return `${owner && owner !== "file" ? owner + "_" : ""}CV${ext}`;
+}

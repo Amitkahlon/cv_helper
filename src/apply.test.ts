@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cvFileName, prepareJobCv } from "./apply.js";
-import { addCv, cvChoice } from "./cvLibrary.js";
+import { prepareJobCv } from "./apply.js";
+import { addCv, cvChoice, cvFileName } from "./cvLibrary.js";
 import { addJobs, readJobs } from "./jobsCsv.js";
 import { saveProfile } from "./profile.js";
 import { createWorkspace, jobsCsvPath } from "./workspace.js";
@@ -39,6 +39,6 @@ describe("prepareJobCv", () => {
     const row = (await readJobs(jobsCsvPath(workspace))).rows[0];
     expect(row.cv_file).toBe("jobs/linkedin-1/Amit_Kahlon_CV.pdf");
 
-    await expect(prepareJobCv(workspace, "linkedin-2")).rejects.toThrow("Choose a CV");
+    await expect(prepareJobCv(workspace, "linkedin-2")).rejects.toThrow("no CV yet");
   });
 });

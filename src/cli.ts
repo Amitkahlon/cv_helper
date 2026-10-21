@@ -9,6 +9,7 @@ import YAML from "yaml";
 import { addLinks } from "./add.js";
 import { workspaceAi } from "./ai/default.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
+import { buildCv, jobsNeedingCv } from "./cvBuild.js";
 import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
 import { loadProfile, profileDir, saveProfile } from "./profile.js";
@@ -25,6 +26,9 @@ const USAGE = `Usage: cvhelper <command>
   requirements [ids] [--limit N] [--all]
                                extract requirements with AI (default: jobs not
                                submitted or rejected that don't have them yet)
+  build [ids] [--limit N] [--instructions "..."]
+                               build CVs with AI (default: jobs not submitted
+                               or rejected that have no CV yet)
   ui                           open the web UI`;
 const UI_PORT = 4321;
 
@@ -39,6 +43,9 @@ switch (command) {
     break;
   case "profile":
     await runProfile(commandArgs);
+    break;
+  case "build":
+    await runBuild(commandArgs);
     break;
   case "requirements":
     await runRequirements(commandArgs);
@@ -181,6 +188,27 @@ async function runProfile(args: string[]): Promise<void> {
     console.log(`Profile saved to ${path.join(profileDir(workspace), "profile.yaml")}. Review it in the UI (Profile page).`);
   }
   console.log(`${draft.experience.length} jobs, ${draft.projects.length} projects, ${draft.education.length} education entries.`);
+}
+
+// cvhelper build [ids...] [--limit N] [--instructions "..."]
+async function runBuild(args: string[]): Promise<void> {
+  const workspace = await requireWorkspace();
+  const valueOf = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
+  const flagValues = new Set(["--limit", "--instructions"].map((f) => args.indexOf(f) + 1).filter((i) => i > 0));
+  const ids = args.filter((arg, i) => !arg.startsWith("--") && !flagValues.has(i));
+  const limit = Number(valueOf("--limit") ?? Infinity);
+  const todo = (ids.length ? ids : await jobsNeedingCv(workspace)).slice(0, limit);
+  const ai = await workspaceAi(workspace);
+  console.log(`Building ${todo.length} CV(s) with ${ai.name}...\n`);
+  for (const id of todo) {
+    try {
+      const report = await buildCv(workspace, ai, id, { instructions: valueOf("--instructions") });
+      console.log(`  built   ${id}  score ${report.score}  (${report.choice})`);
+      for (const warning of report.warnings) console.log(`          ! ${warning}`);
+    } catch (err) {
+      console.log(`  failed  ${id}  (${err instanceof Error ? err.message : String(err)})`);
+    }
+  }
 }
 
 // cvhelper requirements [ids...] [--limit N] [--all]

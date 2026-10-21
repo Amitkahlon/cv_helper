@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AddJobs } from "./AddJobs";
+import { BuildAll } from "./BuildAll";
 import { fetchJobs, setSubmitted, updateJob, type JobRow } from "./api";
 import { CvChoice } from "./CvChoice";
 import type { CvEntry } from "./cvsApi";
@@ -80,6 +81,7 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
   return (
     <>
       <AddJobs onAdded={reload} />
+      <BuildAll onChanged={reload} />
       <div className="controls">
         <input
           type="search"

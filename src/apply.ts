@@ -1,15 +1,11 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import open from "open";
-import { cvFilePath } from "./cvLibrary.js";
-import { readJobs, updateJob, type JobRow } from "./jobsCsv.js";
-import { loadProfile, safeFileName } from "./profile.js";
+import { jobCvFile } from "./cvBuild.js";
+import { readJobs, type JobRow } from "./jobsCsv.js";
 import { jobsCsvPath } from "./workspace.js";
 
 // Helpers for the apply wizard (plan section 7).
-
-const PREDEFINED = /^predefined: (.+)$/;
 
 async function findJob(workspace: string, id: string): Promise<JobRow> {
   const row = (await readJobs(jobsCsvPath(workspace))).rows.find((r) => r.id === id);
@@ -17,30 +13,12 @@ async function findJob(workspace: string, id: string): Promise<JobRow> {
   return row;
 }
 
-// The file name employers see: "Amit_Kahlon_CV.pdf" (just "CV.pdf" if the
-// profile has no name in ASCII letters).
-export function cvFileName(personName: string, ext: string): string {
-  const owner = personName.trim() ? safeFileName(personName).replace(/ +/g, "_") : "";
-  return `${owner && owner !== "file" ? owner + "_" : ""}CV${ext}`;
-}
-
-// Copies the job's chosen library CV into its folder under the name employers
-// see, and records it in the cv_file column. Returns the copy's full path.
+// The job's CV in its folder, under the name employers see: the built CV, or a
+// copy of its chosen library CV. Returns the full path.
 export async function prepareJobCv(workspace: string, id: string): Promise<string> {
-  const row = await findJob(workspace, id);
-  const match = (row.cv_choice ?? "").match(PREDEFINED);
-  if (!match) throw new Error("Choose a CV for this job first");
-  const source = cvFilePath(workspace, match[1]);
-
-  const { profile } = await loadProfile(workspace);
-  const dir = path.join(workspace, "jobs", id);
-  await mkdir(dir, { recursive: true });
-  const target = path.join(dir, cvFileName(profile.personal.name, path.extname(source)));
-  await copyFile(source, target);
-
-  const relative = path.relative(workspace, target).split(path.sep).join("/");
-  if (row.cv_file !== relative) await updateJob(jobsCsvPath(workspace), id, { cv_file: relative });
-  return target;
+  const file = await jobCvFile(workspace, id);
+  if (!file) throw new Error("This job has no CV yet: choose one or create it");
+  return file;
 }
 
 // Opens the job's links (employer page, agency page) in the user's normal browser (lesson 9.7).

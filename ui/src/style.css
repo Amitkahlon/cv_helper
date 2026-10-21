@@ -122,3 +122,4 @@ tr.selected, tr.selected:hover { background: var(--accent-soft); }
 .stat b { display: block; font-size: 24px; }
 .bar { height: 8px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; }
 .bar > div { height: 100%; background: var(--accent); }
+.checklist { list-style: none; padding-left: 0; } .checklist li { margin: 3px 0; }
