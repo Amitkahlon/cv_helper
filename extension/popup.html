@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { width: 340px; margin: 0; padding: 12px; font: 13px/1.4 system-ui, sans-serif; color: #1f2328; }
+      h1 { font-size: 15px; margin: 0 0 8px; } h1 span { color: #2f5bd3; }
+      select, button, input { font: inherit; width: 100%; box-sizing: border-box; margin: 4px 0; padding: 6px 8px; border-radius: 6px; border: 1px solid #dde1e7; background: #fff; }
+      button { cursor: pointer; } button.primary { background: #2f5bd3; color: #fff; border-color: #2f5bd3; }
+      button:disabled { opacity: .5; cursor: default; }
+      .hint { color: #5d6673; } .error { color: #b42318; } .ok { color: #1a7f37; }
+      details { margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>cv<span>helper</span></h1>
+    <div id="app"><p class="hint">Loading...</p></div>
+    <details>
+      <summary class="hint">Server</summary>
+      <input id="server" placeholder="http://127.0.0.1:4321" />
+    </details>
+    <script src="popup.js"></script>
+  </body>
+</html>

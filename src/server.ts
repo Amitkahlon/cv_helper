@@ -13,6 +13,7 @@ import type { Requirements } from "./requirements.js";
 import { today } from "./dates.js";
 import { CsvLockedError, readJobs, updateJob, type JobRow } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
+import { linkInfo } from "./jobKey.js";
 import { cleanProfile, cleanRoles, loadProfile, saveProfile } from "./profile.js";
 import { profileQuestions } from "./profileQuestions.js";
 import { fillRequirements } from "./requirements.js";
@@ -31,9 +32,11 @@ export function createServer(initialWorkspace: string): express.Express {
   let workspace = initialWorkspace;
   let csvPath = jobsCsvPath(workspace);
   const app = express();
+  app.use(onlyThisComputer);
   app.use(express.json({ limit: "5mb" }));
   let adding = false; // one "add jobs" run at a time (it uses one browser profile)
   let building = false; // one bulk CV build at a time
+  let currentJob = ""; // the job the Apply wizard is showing, for the Chrome extension
 
   app.get("/api/jobs", async (_req, res) => {
     res.json(await readJobs(csvPath));
@@ -317,6 +320,32 @@ export function createServer(initialWorkspace: string): express.Express {
     }
   });
 
+  // --- Chrome extension ---
+
+  // The Apply wizard says which job it is showing.
+  app.post("/api/extension/current", (req, res) => {
+    currentJob = String(req.body?.id ?? "");
+    res.json({ ok: true });
+  });
+
+  // ?url=<the page the extension is on>. Answers with the open jobs, the one
+  // matching that page (if any) and the wizard's current job.
+  app.get("/api/extension/state", async (req, res) => {
+    const open = (await readJobs(csvPath)).rows
+      .filter((r) => !(r.submitted ?? "").trim() && !(r.filter ?? "").trim())
+      .sort((a, b) => (b.posted_date || b.first_seen || "").localeCompare(a.posted_date || a.first_seen || ""));
+    res.json({
+      current: open.some((r) => r.id === currentJob) ? currentJob : "",
+      match: matchingJob(open, String(req.query.url ?? "")),
+      jobs: open.map((r) => ({
+        id: r.id,
+        title: r.title,
+        company: r.company,
+        cv_ready: r.cv_status === "built" || /^predefined:/.test(r.cv_choice ?? ""),
+      })),
+    });
+  });
+
   // --- Settings ---
 
   // API keys are never sent back, only whether each one is set.
@@ -363,6 +392,41 @@ export function createServer(initialWorkspace: string): express.Express {
 
   app.use(express.static(UI_DIR));
   return app;
+}
+
+// Only pages on this computer may use the server. Otherwise any website open in
+// the browser could send it requests (e.g. upload files), or reach it through a
+// DNS name that points at 127.0.0.1 (DNS rebinding).
+const LOCAL_ORIGIN = /^(https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?|chrome-extension:\/\/[a-p]{32})$/;
+
+function onlyThisComputer(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const host = (req.headers.host ?? "").replace(/:\d+$/, "");
+  if (host !== "127.0.0.1" && host !== "localhost") {
+    res.status(403).json({ error: "cvhelper only answers on 127.0.0.1" });
+    return;
+  }
+  const origin = req.headers.origin;
+  if (req.method !== "GET" && req.method !== "HEAD" && origin && !LOCAL_ORIGIN.test(origin)) {
+    res.status(403).json({ error: "Requests from other websites are not allowed" });
+    return;
+  }
+  next();
+}
+
+// The job whose link is the given page: the same job by our link keys, or a
+// page under the job's link (e.g. its /apply page).
+function matchingJob(rows: JobRow[], url: string): string {
+  if (!/^https?:\/\//.test(url)) return "";
+  const key = linkInfo(url).key;
+  const bare = (link: string) => link.replace(/^https?:\/\/(www\.)?/i, "").replace(/[?#].*$/, "").replace(/\/+$/, "").toLowerCase();
+  const page = bare(url);
+  for (const row of rows) {
+    for (const link of [row.job_link, row.agency_link]) {
+      if (!link || !/^https?:/.test(link)) continue;
+      if (linkInfo(link).key === key || page.startsWith(bare(link))) return row.id;
+    }
+  }
+  return "";
 }
 
 function errorMessage(err: unknown): string {

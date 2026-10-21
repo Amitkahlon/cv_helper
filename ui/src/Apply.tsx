@@ -76,6 +76,12 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
     setNote("");
     setStatus("");
     fetchDetails(job.id).then(setDetails, () => setDetails(null));
+    // Tell the Chrome extension which job this is.
+    fetch("/api/extension/current", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: job.id }),
+    }).catch(() => {});
     run("Opening...", async () => {
       // A ready-made CV can be copied right away; a tailored one only once it's built.
       if (job.cv_choice?.startsWith("predefined:") || job.cv_status === "built") await getCv(job.id, autoFolder);
