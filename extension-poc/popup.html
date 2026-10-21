@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { width: 320px; margin: 0; padding: 12px 14px; font: 13px/1.4 system-ui, sans-serif; color: #1f2328; }
+      h1 { font-size: 15px; margin: 0 0 6px; } h1 span { color: #2f5bd3; }
+      .row { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; }
+      .hint { color: #5d6673; } .error { color: #b42318; } .ok { color: #1a7f37; }
+      .job { background: #f6f8fa; border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+      .job b { display: block; }
+      select, input[type=text], button { font: inherit; width: 100%; box-sizing: border-box; margin: 4px 0; padding: 5px 8px; border-radius: 6px; border: 1px solid #dde1e7; background: #fff; }
+      a { color: #2f5bd3; }
+      /* On/off switch */
+      .switch { position: relative; width: 36px; height: 20px; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch span { position: absolute; inset: 0; background: #c9ced6; border-radius: 10px; cursor: pointer; transition: .15s; }
+      .switch span::before { content: ""; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .15s; }
+      .switch input:checked + span { background: #2f5bd3; }
+      .switch input:checked + span::before { transform: translateX(16px); }
+      details { margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>cv<span>helper</span></h1>
+    <div id="reach" class="hint">Checking cvhelper...</div>
+    <div class="row">
+      <label for="enabled">Auto-attach</label>
+      <label class="switch"><input type="checkbox" id="enabled" /><span></span></label>
+    </div>
+    <div id="job" class="job hint">No current job.</div>
+    <label for="jobs" class="hint">Applying to:</label>
+    <select id="jobs"></select>
+    <p class="hint">Click a site's upload-resume button and this CV is attached. Alt+click for the normal file picker.</p>
+    <details>
+      <summary class="hint">Server</summary>
+      <input type="text" id="server" placeholder="http://127.0.0.1:4321" />
+    </details>
+    <script src="popup.js"></script>
+  </body>
+</html>
