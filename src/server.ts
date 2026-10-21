@@ -24,6 +24,9 @@ import { createWorkspace, jobsCsvPath } from "./workspace.js";
 // The built page: vite builds it into dist/ui, next to this file once compiled.
 const UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "ui");
 
+// Date columns for what happened after submitting (plan section 4).
+const EVENT_COLUMNS = ["phone_call_date", "interview_date", "rejected_date", "offer_date"];
+
 // Job ids are also folder names; anything else must not reach the file system.
 const SAFE_ID = /^[A-Za-z0-9._-]+$/;
 
@@ -43,9 +46,15 @@ export function createServer(initialWorkspace: string): express.Express {
   });
 
   // Body: any of { "submitted": true | false, "cv_choice": "predefined: <file>" | "",
-  // "note": "text to add to the notes column" }
+  // "note": "text to add to the notes column", "notes": "the whole notes column",
+  // "phone_call_date" | "interview_date" | "rejected_date" | "offer_date": "YYYY-MM-DD" | "" }
   app.patch("/api/jobs/:id", async (req, res) => {
     const changes: JobRow = {};
+    for (const column of EVENT_COLUMNS) {
+      const value = req.body?.[column];
+      if (typeof value === "string" && (value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value))) changes[column] = value;
+    }
+    if (typeof req.body?.notes === "string") changes.notes = req.body.notes;
     const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
     if (note) {
       const row = (await readJobs(csvPath)).rows.find((r) => r.id === req.params.id);

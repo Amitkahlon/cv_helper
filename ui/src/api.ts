@@ -36,7 +36,16 @@ export async function fetchJobs(): Promise<JobRow[]> {
 
 export async function updateJob(
   id: string,
-  changes: { submitted?: boolean; cv_choice?: string; note?: string },
+  changes: {
+    submitted?: boolean;
+    cv_choice?: string;
+    note?: string;
+    notes?: string;
+    phone_call_date?: string;
+    interview_date?: string;
+    rejected_date?: string;
+    offer_date?: string;
+  },
 ): Promise<void> {
   const response = await fetch(`/api/jobs/${encodeURIComponent(id)}`, {
     method: "PATCH",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { extractRequirements, fetchDetails, type JobDetails, type JobRow } from "./api";
+import { extractRequirements, fetchDetails, updateJob, type JobDetails, type JobRow } from "./api";
 import { CvChoice } from "./CvChoice";
 import { CvSection } from "./CvSection";
 import { cvChoice, cvUrl, type CvEntry } from "./cvsApi";
@@ -38,6 +38,20 @@ export function Details({
     }
   }
 
+  const [notes, setNotes] = useState(job.notes ?? "");
+  useEffect(() => setNotes(job.notes ?? ""), [job.id, job.notes]);
+
+  // Saves one tracker cell (event dates, notes) and reloads the table.
+  async function save(changes: Parameters<typeof updateJob>[1]) {
+    setError("");
+    try {
+      await updateJob(job.id, changes);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   useEffect(() => {
     setDetails(undefined);
     setError("");
@@ -71,6 +85,32 @@ export function Details({
           </a>
         )}
       </p>
+      <h3>After applying</h3>
+      <div className="fields">
+        {(
+          [
+            ["phone_call_date", "Phone call"],
+            ["interview_date", "Interview"],
+            ["rejected_date", "Rejected"],
+            ["offer_date", "Offer"],
+          ] as const
+        ).map(([column, label]) => (
+          <label key={column} className="field">
+            <span>{label}</span>
+            <input type="date" value={job[column] ?? ""} onChange={(e) => save({ [column]: e.target.value })} />
+          </label>
+        ))}
+        <label className="field wide">
+          <span>Notes</span>
+          <textarea
+            dir="auto"
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={() => notes !== (job.notes ?? "") && save({ notes })}
+          />
+        </label>
+      </div>
       <CvSection job={job} onChanged={onChanged} />
       {details && fact("Employment type", details.employment_type)}
       {details && fact("Seniority", details.seniority)}

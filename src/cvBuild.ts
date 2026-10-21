@@ -210,7 +210,7 @@ export function checklistMarkdown(job: JobRecord, report: CvReport): string {
 const FONT_SCALES = [1, 0.95, 0.9, 0.85];
 
 // Renders the CV, shrinking the text a little until it fits on one page.
-async function renderPdf(html: (scale: number) => string): Promise<{ pdf: Buffer; pages: number }> {
+export async function renderPdf(html: (scale: number) => string): Promise<{ pdf: Buffer; pages: number }> {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();

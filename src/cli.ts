@@ -10,6 +10,7 @@ import { addLinks } from "./add.js";
 import { workspaceAi } from "./ai/default.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
 import { buildCv, jobsNeedingCv } from "./cvBuild.js";
+import { createDemoWorkspace } from "./demo.js";
 import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
 import { loadProfile, profileDir, saveProfile } from "./profile.js";
@@ -29,7 +30,9 @@ const USAGE = `Usage: cvhelper <command>
   build [ids] [--limit N] [--instructions "..."]
                                build CVs with AI (default: jobs not submitted
                                or rejected that have no CV yet)
-  ui                           open the web UI`;
+  ui [--workspace <folder>]    open the web UI (on another workspace without
+                               changing your saved one)
+  demo [folder]                create a demo workspace with made-up data`;
 const UI_PORT = 4321;
 
 const [command, ...commandArgs] = process.argv.slice(2);
@@ -54,7 +57,10 @@ switch (command) {
     await runLinks();
     break;
   case "ui":
-    await runUi();
+    await runUi(commandArgs);
+    break;
+  case "demo":
+    await runDemo(commandArgs);
     break;
   default:
     console.error(USAGE);
@@ -119,13 +125,37 @@ function expandHome(p: string): string {
   return p;
 }
 
-async function runUi(): Promise<void> {
-  const workspace = await requireWorkspace();
+async function runUi(args: string[]): Promise<void> {
+  const flag = args.indexOf("--workspace");
+  const workspace = flag >= 0 && args[flag + 1] ? path.resolve(expandHome(args[flag + 1])) : await requireWorkspace();
+  if (!(await workspaceExists(workspace))) {
+    console.error(`No workspace in ${workspace} (run cvhelper init, or cvhelper demo ${workspace})`);
+    process.exitCode = 1;
+    return;
+  }
   const url = `http://127.0.0.1:${UI_PORT}`;
-  createServer(workspace).listen(UI_PORT, "127.0.0.1", () => {
-    console.log(`cvhelper UI running at ${url} (Ctrl+C to stop)`);
+  const server = createServer(workspace).listen(UI_PORT, "127.0.0.1", () => {
+    console.log(`cvhelper UI running at ${url} for ${workspace} (Ctrl+C to stop)`);
     void open(url);
   });
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code !== "EADDRINUSE") throw err;
+    console.error(`Port ${UI_PORT} is already in use: cvhelper ui is probably running already. Opening ${url}.`);
+    void open(url);
+  });
+}
+
+// cvhelper demo [folder]
+async function runDemo(args: string[]): Promise<void> {
+  const folder = path.resolve(expandHome(args[0] ?? path.join(os.homedir(), "cvhelper-demo")));
+  if (await workspaceExists(folder)) {
+    console.error(`${folder} already has a workspace; pick another folder.`);
+    process.exitCode = 1;
+    return;
+  }
+  await createDemoWorkspace(folder);
+  console.log(`Demo workspace created in ${folder}.`);
+  console.log(`Open it with: cvhelper ui --workspace "${folder}"`);
 }
 
 async function runLinks(): Promise<void> {

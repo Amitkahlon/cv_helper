@@ -7,8 +7,9 @@ import { ProfilePage } from "./Profile";
 import { fetchProfile } from "./profileApi";
 import { RolesContext } from "./roles";
 import { SettingsPage } from "./Settings";
+import { StatsPage } from "./Stats";
 
-const PAGES = { jobs: "Jobs", apply: "Apply", profile: "Profile", cvs: "CVs", settings: "Settings" } as const;
+const PAGES = { jobs: "Jobs", apply: "Apply", profile: "Profile", cvs: "CVs", stats: "Stats", settings: "Settings" } as const;
 type Page = keyof typeof PAGES;
 
 export function App() {
@@ -53,6 +54,9 @@ export function App() {
         </div>
         <div hidden={page !== "cvs"}>
           <CvsPage cvs={cvs} onChange={setCvs} />
+        </div>
+        <div hidden={page !== "stats"}>
+          <StatsPage active={page === "stats"} />
         </div>
         <div hidden={page !== "settings"}>
           <SettingsPage />
