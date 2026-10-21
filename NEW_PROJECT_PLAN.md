@@ -118,10 +118,11 @@ Everything for one user lives in one folder (path set in config), separate from 
   jobs.csv                 the tracker — the only list of jobs, and the source for duplicate checks
   profile/
     profile.yaml           facts about the user, as structured fields (see 6)
-    roles.yaml             target roles: which jobs each fits, optional predefined CV, emphasis notes
+    roles.yaml             target roles: which jobs each fits, emphasis notes
     rules.md               the user's own rules for CVs ("never claim X", "one page", ...)
     example_cv.pdf         the user's current CV, used to seed the profile and the style
-    cvs/                   predefined CVs, each linked to a role in roles.yaml
+    cvs/                   the CV library: ready-made CVs (PDF/DOCX)
+    cvs.yaml               each library CV's name, category (e.g. a role's name) and what it's for
   jobs/
     <id>/                  one folder per job, ASCII-only name (see 9.6), e.g. linkedin-4475368276
       job.json             scraped details, full description, and the AI-filled requirements object
@@ -146,7 +147,7 @@ requirements live in `jobs/<id>/`.
 | `notes` | user | free text; the apply wizard can append to it |
 | `score` | CV builder | e.g. `3/5` — must-have requirements met |
 | `filter` | add / CV builder | empty = OK, or `rejected: <reason>` |
-| `cv_choice` | AI / user | `predefined: <role>` or `tailored: <role>`; suggested by the AI, the user can change it |
+| `cv_choice` | AI / user | `predefined: <library CV file>` or `tailored: <role>`; picked in the UI (later also suggested by the AI) |
 | `cv_status` | CV builder | empty, `built`, `error: ...`; user types `build` to force a (re)build |
 | `title` | add | job title |
 | `company` | add | company name |
@@ -311,8 +312,11 @@ separate profiles per role — which would have to be kept in sync — the one p
 target roles. Each role has:
 
 - a name and a one-line description of which jobs it fits;
-- optionally, a **predefined CV** (a file in `profile/cvs/`) to use as-is for those jobs;
 - optionally, **emphasis notes** for tailoring ("lead with the Playwright framework project").
+
+Ready-made CVs live in a **CV library** (`profile/cvs/` + `cvs.yaml`): upload several, give each a
+category (a target role's name links it to that role) and say which jobs it is for. Any job can use
+any library CV.
 
 Different *people* each get their own workspace; switching workspaces in the UI is a later feature.
 
@@ -330,12 +334,12 @@ Importing extra documents (a portfolio, old CVs) can come later.
 
 ### CV choice per job
 
-Each job gets a `cv_choice`, either `predefined: <role>` or `tailored: <role>`:
+Each job gets a `cv_choice`, either `predefined: <library CV file>` or `tailored: <role>`:
 
 1. The AI suggests it from the job's requirements and the target roles.
 2. The user can change it per job (a dropdown in the UI, or the CSV cell) before building.
 3. "Create CV" then does one of:
-   - **predefined** — copies the role's finished CV into the job folder under the standard file name.
+   - **predefined** — copies the chosen library CV into the job folder under the standard file name.
      No rendering; still produces the checklist and score.
    - **tailored** — the AI picks and words content from `profile.yaml`, guided by the role's emphasis
      notes; a fixed template renders it. Names, titles, dates, contact details and links come from the

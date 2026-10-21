@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { AddJobs } from "./AddJobs";
-import { fetchJobs, setSubmitted, type JobRow } from "./api";
+import { fetchJobs, setSubmitted, updateJob, type JobRow } from "./api";
+import { CvChoice } from "./CvChoice";
+import type { CvEntry } from "./cvsApi";
 import { Details } from "./Details";
 
 const COLUMNS = [
@@ -8,7 +10,7 @@ const COLUMNS = [
   ["company", "Company"],
   ["location", "Location"],
   ["score", "Score"],
-  ["cv_status", "CV"],
+  ["cv_status", "CV status"],
   ["filter", "Filter"],
   ["posted_date", "Posted"],
 ] as const;
@@ -18,7 +20,7 @@ type ColumnKey = (typeof COLUMNS)[number][0];
 const isSubmitted = (job: JobRow) => (job.submitted ?? "").trim() !== "";
 const isRejected = (job: JobRow) => (job.filter ?? "").trim() !== "";
 
-export function JobsPage() {
+export function JobsPage({ cvs }: { cvs: CvEntry[] }) {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [search, setSearch] = useState("");
   const [notSubmittedOnly, setNotSubmittedOnly] = useState(false);
@@ -37,6 +39,16 @@ export function JobsPage() {
     try {
       await setSubmitted(job.id, !isSubmitted(job));
       setJobs(await fetchJobs()); // reload: the CSV may also have changed in Excel
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function chooseCv(job: JobRow, choice: string) {
+    setError("");
+    try {
+      await updateJob(job.id, { cv_choice: choice });
+      setJobs(await fetchJobs());
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -103,6 +115,7 @@ export function JobsPage() {
                   {sort?.key === key ? (sort.desc ? " ▼" : " ▲") : ""}
                 </th>
               ))}
+              <th>Chosen CV</th>
               <th>Link 1</th>
               <th>Link 2</th>
             </tr>
@@ -123,6 +136,9 @@ export function JobsPage() {
                   </td>
                 ))}
                 <td onClick={(e) => e.stopPropagation()}>
+                  <CvChoice cvs={cvs} value={job.cv_choice ?? ""} onChange={(choice) => chooseCv(job, choice)} />
+                </td>
+                <td onClick={(e) => e.stopPropagation()}>
                   {job.job_link && <a href={job.job_link} target="_blank" rel="noreferrer">link 1</a>}
                 </td>
                 <td onClick={(e) => e.stopPropagation()}>
@@ -132,7 +148,13 @@ export function JobsPage() {
             ))}
           </tbody>
         </table>
-        {selected && <Details job={selected} onClose={() => setSelectedId(null)} onChanged={reload} />}
+        {selected && <Details
+              job={selected}
+              cvs={cvs}
+              onChooseCv={(choice) => chooseCv(selected, choice)}
+              onClose={() => setSelectedId(null)}
+              onChanged={reload}
+            />}
       </div>
       <p>
         {shown.length} of {jobs.length} jobs

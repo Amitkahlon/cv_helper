@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
-import type { Education, Entry, Profile, ProfileData, Project, Role } from "./profileTypes.js";
+import type { CvEntry, Education, Entry, Profile, ProfileData, Project, Role } from "./profileTypes.js";
 
 export const DEFAULT_RULES = `# Rules for your CVs
 
@@ -95,7 +95,6 @@ export function cleanRoles(roles: unknown): Role[] {
     name: str(r?.name),
     fits: str(r?.fits),
     emphasis: str(r?.emphasis),
-    cv_file: str(r?.cv_file),
   }));
 }
 
@@ -124,6 +123,15 @@ function education(e: any): Education {
     grade: str(e?.grade),
     notable_courses: strs(e?.notable_courses),
   };
+}
+
+export function cleanCvs(cvs: unknown): CvEntry[] {
+  return list(cvs, (c) => ({
+    file: str(c?.file),
+    name: str(c?.name),
+    category: str(c?.category),
+    purpose: str(c?.purpose),
+  })).filter((c) => c.file !== "");
 }
 
 // YAML turns "2022" into a number, so numbers count as text too.

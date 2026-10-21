@@ -1,14 +1,15 @@
 import express from "express";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addLinks, jobJsonPath } from "./add.js";
 import { defaultAi } from "./ai/default.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
+import { addCv, cvChoice, cvFilePath, deleteCv, loadCvs, saveCvs } from "./cvLibrary.js";
 import { today } from "./dates.js";
-import { CsvLockedError, readJobs, updateJob } from "./jobsCsv.js";
+import { CsvLockedError, readJobs, updateJob, type JobRow } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
-import { cleanProfile, cleanRoles, loadProfile, profileDir, safeFileName, saveProfile } from "./profile.js";
+import { cleanProfile, cleanRoles, loadProfile, saveProfile } from "./profile.js";
 import { profileQuestions } from "./profileQuestions.js";
 import { fillRequirements } from "./requirements.js";
 import { jobsCsvPath } from "./workspace.js";
@@ -29,14 +30,23 @@ export function createServer(workspace: string): express.Express {
     res.json(await readJobs(csvPath));
   });
 
-  // Body: { "submitted": true | false }
+  // Body: any of { "submitted": true | false, "cv_choice": "predefined: <file>" | "" }
   app.patch("/api/jobs/:id", async (req, res) => {
-    const submitted = req.body?.submitted === true;
+    const changes: JobRow = {};
+    if (typeof req.body?.submitted === "boolean") {
+      changes.submitted = req.body.submitted ? "YES" : "";
+      changes.submitted_date = req.body.submitted ? today() : "";
+    }
+    if (typeof req.body?.cv_choice === "string") {
+      const choice = req.body.cv_choice;
+      if (choice && !(await loadCvs(workspace)).some((cv) => cvChoice(cv.file) === choice)) {
+        res.status(400).json({ error: `Unknown CV choice: ${choice}` });
+        return;
+      }
+      changes.cv_choice = choice;
+    }
     try {
-      await updateJob(csvPath, req.params.id, {
-        submitted: submitted ? "YES" : "",
-        submitted_date: submitted ? today() : "",
-      });
+      await updateJob(csvPath, req.params.id, changes);
       res.json({ ok: true });
     } catch (err) {
       res.status(err instanceof CsvLockedError ? 409 : 500).json({ error: errorMessage(err) });
@@ -136,18 +146,42 @@ export function createServer(workspace: string): express.Express {
     }
   });
 
-  // Body: a predefined CV file for a target role; ?name=<file name>. Saved in
-  // profile/cvs/; answers with its path relative to profile/.
-  app.post("/api/profile/cvs", express.raw({ type: "*/*", limit: "20mb" }), async (req, res) => {
-    const name = safeFileName(String(req.query.name ?? ""));
-    if (!/\.(pdf|docx)$/.test(name)) {
-      res.status(400).json({ error: "Predefined CVs must be PDF or DOCX files" });
-      return;
+  // --- CV library ---
+
+  app.get("/api/cvs", async (_req, res) => {
+    res.json(await loadCvs(workspace));
+  });
+
+  // Body: the list with edited names, categories and purposes.
+  app.put("/api/cvs", async (req, res) => {
+    res.json(await saveCvs(workspace, req.body));
+  });
+
+  // Body: the CV file itself; ?name=<original file name>. Answers with the new entry.
+  app.post("/api/cvs", express.raw({ type: "*/*", limit: "20mb" }), async (req, res) => {
+    try {
+      res.json(await addCv(workspace, req.body as Buffer, String(req.query.name ?? "")));
+    } catch (err) {
+      res.status(400).json({ error: errorMessage(err) });
     }
-    const dir = path.join(profileDir(workspace), "cvs");
-    await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, name), req.body as Buffer);
-    res.json({ file: `cvs/${name}` });
+  });
+
+  app.delete("/api/cvs/:file", async (req, res) => {
+    try {
+      await deleteCv(workspace, req.params.file);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(err instanceof CsvLockedError ? 409 : 400).json({ error: errorMessage(err) });
+    }
+  });
+
+  // The file itself, to open in the browser.
+  app.get("/api/cvs/:file", (req, res) => {
+    try {
+      res.sendFile(cvFilePath(workspace, req.params.file));
+    } catch (err) {
+      res.status(400).json({ error: errorMessage(err) });
+    }
   });
 
   app.use(express.static(UI_DIR));

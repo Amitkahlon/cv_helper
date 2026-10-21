@@ -12,7 +12,7 @@ th { background: #f3f3f3; }
 .layout { display: flex; gap: 16px; align-items: flex-start; }
 tbody tr { cursor: pointer; }
 tr.selected { background: #eef3ff; }
-.details { position: sticky; top: 16px; flex: 0 0 40%; max-height: calc(100vh - 32px); overflow: auto; border: 1px solid #ccc; padding: 8px 12px; margin-top: 12px; }
+.details { position: sticky; top: 16px; flex: 0 1 40%; min-width: 320px; max-height: calc(100vh - 32px); overflow: auto; border: 1px solid #ccc; padding: 8px 12px; margin-top: 12px; }
 .details .close { float: right; }
 .description { white-space: pre-wrap; }
 nav { display: flex; gap: 8px; }
@@ -26,3 +26,4 @@ nav .current { font-weight: bold; }
 .entry { border: 1px solid #ccc; margin: 8px 0; }
 .questions { background: #fff8dc; padding: 6px 6px 6px 24px; margin: 4px 0; }
 .hint { color: #555; }
+.field.wide { grid-column: 1 / -1; }

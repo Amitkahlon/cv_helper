@@ -45,14 +45,3 @@ export async function askQuestions(profile: Profile, roles: Role[]): Promise<Pro
   if (!response.ok) throw new Error(await errorText(response));
   return (await response.json()).questions;
 }
-
-// Uploads a predefined CV for a target role; answers with its path, e.g. "cvs/qa_cv.pdf".
-export async function uploadRoleCv(file: File): Promise<string> {
-  const response = await fetch(`/api/profile/cvs?name=${encodeURIComponent(file.name)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/octet-stream" },
-    body: file,
-  });
-  if (!response.ok) throw new Error(await errorText(response));
-  return (await response.json()).file;
-}

@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 import { extractRequirements, fetchDetails, type JobDetails, type JobRow } from "./api";
+import { CvChoice } from "./CvChoice";
+import { cvChoice, cvUrl, type CvEntry } from "./cvsApi";
 
 // The panel for one job: its saved job.json if there is one, otherwise the tracker row.
 export function Details({
   job,
+  cvs,
+  onChooseCv,
   onClose,
   onChanged,
 }: {
   job: JobRow;
+  cvs: CvEntry[];
+  onChooseCv: (choice: string) => void;
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const chosen = cvs.find((cv) => cvChoice(cv.file) === job.cv_choice);
   const [details, setDetails] = useState<JobDetails | null | undefined>(undefined);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +62,14 @@ export function Details({
       {fact("First seen", job.first_seen)}
       {fact("Filter", job.filter)}
       {fact("CV", job.cv_status)}
+      <p>
+        <b>Chosen CV:</b> <CvChoice cvs={cvs} value={job.cv_choice ?? ""} onChange={onChooseCv} />{" "}
+        {chosen && (
+          <a href={cvUrl(chosen.file)} target="_blank" rel="noreferrer">
+            open
+          </a>
+        )}
+      </p>
       {details && fact("Employment type", details.employment_type)}
       {details && fact("Seniority", details.seniority)}
       {details?.closed && <p className="error">This job is closed.</p>}

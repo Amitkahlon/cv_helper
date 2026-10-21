@@ -3,7 +3,7 @@ import path from "node:path";
 
 // Tracker columns, in order (plan section 4).
 export const JOBS_CSV_COLUMNS = [
-  "submitted", "notes", "score", "filter", "cv_status",
+  "submitted", "notes", "score", "filter", "cv_choice", "cv_status",
   "title", "company", "location", "requirements",
   "job_link", "agency_link", "cv_file",
   "posted_date", "first_seen", "submitted_date",

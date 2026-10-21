@@ -5,7 +5,6 @@ import {
   fetchProfile,
   importCv,
   saveProfile,
-  uploadRoleCv,
   type ProfileForm,
   type ProfileQuestion,
 } from "./profileApi";
@@ -235,8 +234,8 @@ export function ProfilePage() {
 
       <h2>Target roles</h2>
       <p className="hint">
-        The kinds of jobs you apply for. For each job, the AI picks the matching role and either uses its
-        predefined CV or tailors one with its emphasis.
+        The kinds of jobs you apply for. Ready-made CVs for a role go in the CVs tab, with the role's name
+        as their category.
       </p>
       <Questions questions={sectionQuestions("roles")} />
       <ListEditor
@@ -245,20 +244,6 @@ export function ProfilePage() {
         onChange={(roles) => setForm({ ...form, roles: roles as ProfileForm["roles"] })}
         itemLabel={(r) => r.name}
         entryQuestions={entryQuestions("roles")}
-        extra={(role, update) => (
-          <div className="field">
-            <span>Predefined CV (optional){role.cv_file ? `: ${role.cv_file}` : ""}</span>
-            <input
-              type="file"
-              accept=".pdf,.docx"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) run("Uploading...", async () => update({ ...role, cv_file: await uploadRoleCv(file) }));
-              }}
-            />
-            {role.cv_file && <button onClick={() => update({ ...role, cv_file: "" })}>Don't use a predefined CV</button>}
-          </div>
-        )}
       />
 
       <h2>Rules for your CVs</h2>

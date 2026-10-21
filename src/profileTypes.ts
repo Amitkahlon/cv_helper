@@ -56,11 +56,19 @@ export interface Profile {
 }
 
 // A target role (profile/roles.yaml): one kind of job the user applies for.
+// Ready-made CVs for a role are in the CV library, under the role's name as category.
 export interface Role {
   name: string;
   fits: string; // which jobs it fits, in a line
   emphasis: string; // what to lead with when tailoring a CV for it
-  cv_file: string; // optional predefined CV, relative to profile/, e.g. "cvs/qa_cv.pdf"
+}
+
+// A ready-made CV in the library (profile/cvs/ + profile/cvs.yaml).
+export interface CvEntry {
+  file: string; // file name inside profile/cvs/, e.g. "qa_automation.pdf"
+  name: string; // shown in the UI
+  category: string; // free text, e.g. a target role's name
+  purpose: string; // which jobs it is for
 }
 
 export interface ProfileData {

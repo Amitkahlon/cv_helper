@@ -45,7 +45,7 @@ describe("loadProfile / saveProfile", () => {
   it("saves YAML and reads it back, keeping Hebrew", async () => {
     await saveProfile(workspace, {
       profile: { personal: { name: "עמית" }, skills: [{ group: "Tools", items: ["Playwright"] }] },
-      roles: [{ name: "QA automation", fits: "QA automation jobs", emphasis: "", cv_file: "" }],
+      roles: [{ name: "QA automation", fits: "QA automation jobs", emphasis: "" }],
       rules: "# My rules\n",
     });
     const data = await loadProfile(workspace);

@@ -31,14 +31,16 @@ export async function fetchJobs(): Promise<JobRow[]> {
   return (await response.json()).rows;
 }
 
-export async function setSubmitted(id: string, submitted: boolean): Promise<void> {
+export async function updateJob(id: string, changes: { submitted?: boolean; cv_choice?: string }): Promise<void> {
   const response = await fetch(`/api/jobs/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ submitted }),
+    body: JSON.stringify(changes),
   });
   if (!response.ok) throw new Error(await errorText(response));
 }
+
+export const setSubmitted = (id: string, submitted: boolean) => updateJob(id, { submitted });
 
 // The job's saved details, or null if none were saved (e.g. jobs imported without them).
 export async function fetchDetails(id: string): Promise<JobDetails | null> {
