@@ -48,6 +48,13 @@ export async function fetchDetails(id: string): Promise<JobDetails | null> {
   return response.json();
 }
 
+// Asks the server to extract this job's requirements with AI (takes up to a minute).
+export async function extractRequirements(id: string): Promise<JobDetails["requirements"]> {
+  const response = await fetch(`/api/jobs/${encodeURIComponent(id)}/requirements`, { method: "POST" });
+  if (!response.ok) throw new Error(await errorText(response));
+  return response.json();
+}
+
 // Sends pasted text to the server and calls onEvent for each progress line it sends back.
 export async function addJobs(text: string, onEvent: (event: AddEvent) => void): Promise<void> {
   const response = await fetch("/api/add", {

@@ -5,16 +5,25 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import open from "open";
 import { addLinks } from "./add.js";
+import { defaultAi } from "./ai/default.js";
 import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
+import { fillRequirements, jobsNeedingRequirements } from "./requirements.js";
 import { createServer } from "./server.js";
 import { loadSettings, saveSettings } from "./settings.js";
 import { createWorkspace, jobsCsvPath, workspaceExists } from "./workspace.js";
 
-const USAGE = "Usage: cvhelper <init|add|links|ui>";
+const USAGE = `Usage: cvhelper <command>
+  init                         choose the workspace folder
+  add                          paste messages or links; adds the jobs
+  links                        paste messages; lists the job links in them
+  requirements [ids] [--limit N] [--all]
+                               extract requirements with AI (default: jobs not
+                               submitted or rejected that don't have them yet)
+  ui                           open the web UI`;
 const UI_PORT = 4321;
 
-const [command] = process.argv.slice(2);
+const [command, ...commandArgs] = process.argv.slice(2);
 
 switch (command) {
   case "init":
@@ -22,6 +31,9 @@ switch (command) {
     break;
   case "add":
     await runAdd();
+    break;
+  case "requirements":
+    await runRequirements(commandArgs);
     break;
   case "links":
     await runLinks();
@@ -131,6 +143,29 @@ async function runAdd(): Promise<void> {
   console.log("\n" + [...counts].map(([outcome, n]) => `${n} ${outcome}`).join(", "));
   if (loggedOut) {
     console.log("WARNING: HireMe answered as logged out, so company names and apply links are missing.");
+  }
+}
+
+// cvhelper requirements [ids...] [--limit N] [--all]
+async function runRequirements(args: string[]): Promise<void> {
+  const workspace = await requireWorkspace();
+  const limitAt = args.indexOf("--limit");
+  const limit = limitAt >= 0 ? Number(args[limitAt + 1]) : Infinity;
+  const ids = args.filter((arg, i) => !arg.startsWith("--") && !(limitAt >= 0 && i === limitAt + 1));
+  const todo = (ids.length ? ids : await jobsNeedingRequirements(workspace, args.includes("--all"))).slice(
+    0,
+    limit,
+  );
+  const ai = defaultAi();
+  console.log(`Extracting requirements for ${todo.length} job(s) with ${ai.name}...\n`);
+
+  for (const id of todo) {
+    try {
+      const requirements = await fillRequirements(workspace, ai, id, withCsvRetry);
+      console.log(`  done    ${id}  (${requirements.must_have.length} must-have, ${requirements.field})`);
+    } catch (err) {
+      console.log(`  failed  ${id}  (${err instanceof Error ? err.message : String(err)})`);
+    }
   }
 }
 

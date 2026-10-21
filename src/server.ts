@@ -3,9 +3,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addLinks, jobJsonPath } from "./add.js";
+import { defaultAi } from "./ai/default.js";
 import { today } from "./dates.js";
 import { CsvLockedError, readJobs, updateJob } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
+import { fillRequirements } from "./requirements.js";
 import { jobsCsvPath } from "./workspace.js";
 
 // The built page: vite builds it into dist/ui, next to this file once compiled.
@@ -49,6 +51,20 @@ export function createServer(workspace: string): express.Express {
       res.json(JSON.parse(await readFile(jobJsonPath(workspace, id), "utf8")));
     } catch {
       res.status(404).json({ error: "No details saved for this job" });
+    }
+  });
+
+  // Reads the job's description with AI and saves its requirements; answers with them.
+  app.post("/api/jobs/:id/requirements", async (req, res) => {
+    const id = req.params.id;
+    if (!SAFE_ID.test(id)) {
+      res.status(400).json({ error: "Bad job id" });
+      return;
+    }
+    try {
+      res.json(await fillRequirements(workspace, defaultAi(), id));
+    } catch (err) {
+      res.status(err instanceof CsvLockedError ? 409 : 500).json({ error: errorMessage(err) });
     }
   });
 

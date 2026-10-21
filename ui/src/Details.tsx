@@ -1,10 +1,34 @@
 import { useEffect, useState } from "react";
-import { fetchDetails, type JobDetails, type JobRow } from "./api";
+import { extractRequirements, fetchDetails, type JobDetails, type JobRow } from "./api";
 
 // The panel for one job: its saved job.json if there is one, otherwise the tracker row.
-export function Details({ job, onClose }: { job: JobRow; onClose: () => void }) {
+export function Details({
+  job,
+  onClose,
+  onChanged,
+}: {
+  job: JobRow;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const [details, setDetails] = useState<JobDetails | null | undefined>(undefined);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState("");
+
+  async function extract() {
+    if (!details) return;
+    setExtracting(true);
+    setError("");
+    try {
+      const requirements = await extractRequirements(job.id);
+      setDetails({ ...details, requirements });
+      onChanged(); // the CSV's requirements column changed too
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   useEffect(() => {
     setDetails(undefined);
@@ -51,6 +75,17 @@ export function Details({ job, onClose }: { job: JobRow; onClose: () => void }) 
       {details === undefined && !error && <p>Loading...</p>}
       {details === null && <p>No details saved for this job.</p>}
 
+      {details && (
+        <p>
+          <button onClick={extract} disabled={extracting}>
+            {extracting
+              ? "Reading requirements..."
+              : details.requirements
+                ? "Extract requirements again"
+                : "Extract requirements (AI)"}
+          </button>
+        </p>
+      )}
       {details?.requirements?.must_have && (
         <>
           <h3>Must have</h3>

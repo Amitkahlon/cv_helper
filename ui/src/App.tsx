@@ -133,7 +133,7 @@ export function App() {
             ))}
           </tbody>
         </table>
-        {selected && <Details job={selected} onClose={() => setSelectedId(null)} />}
+        {selected && <Details job={selected} onClose={() => setSelectedId(null)} onChanged={reload} />}
       </div>
       <p>
         {shown.length} of {jobs.length} jobs
