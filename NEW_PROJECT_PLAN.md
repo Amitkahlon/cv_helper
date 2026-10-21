@@ -1,8 +1,8 @@
 # CV Submit Helper — Project Plan
 
-A command-line tool that cuts the time it takes to apply for jobs: it collects job postings into one
-tracker, builds a tailored CV per job (or picks one of the user's ready-made CVs), and walks the user
-through submitting them.
+A local tool (web UI + command line) that cuts the time it takes to apply for jobs: it collects job
+postings into one tracker, builds a tailored CV per job (or picks one of the user's ready-made CVs), and
+walks the user through submitting them.
 
 This plan is the starting brief for a new project. It is based on a working prototype ("jobhunter")
 that did all three parts for one user and one job site. Section 9 lists what that prototype taught us;
@@ -17,19 +17,69 @@ Build it slowly: one phase at a time (section 8), each one usable on its own bef
 **For:** job seekers in any field, not only tech. Nothing in the data model, prompts or filters may
 assume a tech CV (no hard-coded "projects", "tech stack", GitHub, etc.).
 
-**Three features:**
+**Who it's for now:** a personal tool for the author, built so it can be showcased and possibly turned
+into a product later. That means: an AI provider interface from the start, a demo workspace with sample
+data, and an English UI built so Hebrew can be added — but polished installing comes only before
+showcasing.
 
-1. **Add jobs** — paste links (an agency page such as HireMe, or the employer's own posting), and the
-   tool fetches each job into the tracker, without duplicates.
-2. **Build CVs** — from a profile the user sets up once, produce one tailored PDF per job (or choose a
-   predefined CV), plus a requirements checklist and a simple score. Jobs the user doesn't want are
-   filtered out with a reason.
-3. **Submit helper** — go through the jobs not yet applied to: show details and score, open the links
-   and the CV folder, record the outcome. Works on Windows and Linux.
+**Core:** the logic lives in a library; the CLI and the web UI are thin layers on top of it, so a
+Chrome extension can reuse it too.
 
-**Not now (future):** a UI, a Chrome extension, sharing scraped postings between users via a server.
-Keep these in mind only as far as not blocking them: the core logic should live in a library with the
-CLI as a thin layer on top, so a UI or extension can reuse it later.
+### Features
+
+**A. Jobs**
+- A1. Paste WhatsApp messages or links → jobs are read into the tracker, without duplicates.
+- A2. Sources: HireMe and LinkedIn first, then Comeet, Lever, Greenhouse, Workday, and any job page.
+- A3. Closed and unwanted jobs are kept but filtered out with a reason (closed, internship, wrong field,
+  too senior, ...).
+- A4. Requirements pulled out of each posting (must-have / nice-to-have, years, field, languages).
+
+**B. Tracker UI** (section 7)
+- B1. An Excel-like list of jobs with a **V checkbox** for "submitted".
+- B2. Sort, filter and search; a job details panel; event dates (phone call, interview, rejection,
+  offer).
+- B3. Buttons for "Add jobs" and "Create CV" (per job or for the selected jobs), with live progress.
+- B4. The CLI commands stay for quick use.
+
+**C. Profile** (section 6)
+- C1. One profile per person, with **target roles** ("QA automation", "Backend developer", ...)
+  instead of separate profiles per role.
+- C2. A **guided walkthrough** that asks about experience, projects, education, skills and preferences.
+- C3. Import an existing CV (PDF/DOCX) to pre-fill the profile.
+- C4. The user's own rules ("never claim X", "one page").
+
+**D. CVs** (section 6)
+- D1. **Tailored CV** per job, built from the profile.
+- D2. **Predefined CVs**, each linked to a target role.
+- D3. **CV choice per job**: the AI suggests "predefined CV X" or "tailored, with role Y's emphasis";
+  the user can change it per job before building.
+- D4. A requirements checklist per job (met / partly / not met) and a score.
+- D5. A summary of what was changed in a tailored CV.
+
+**E. Applying** (section 7)
+- E1. **Apply wizard** in the UI: goes through the jobs not yet applied to, opens the job site, shows
+  the CV summary and changes, and which requirements are met or missing.
+- E2. Easy CV upload: the CV folder opens with the file already selected, and the CV's full path is
+  copied to the clipboard (paste it into the site's file picker).
+- E3. **Chrome extension** that puts the CV straight into the site's upload field; form auto-fill from
+  the profile later.
+
+**F. AI providers** (section 2)
+- F1. Choice of provider: Claude, ChatGPT, Gemini.
+- F2. Two ways to connect each one: its CLI on the user's subscription (no key), or an API key.
+
+**G. Later**
+- Statistics: response rate, days to the first call, which sources respond best.
+- Switching between workspaces (different people) in the UI.
+- Sharing scraped postings between users via a server.
+
+### What makes it different
+
+Tools like Teal, Huntr and Simplify already track jobs, tailor CVs and auto-fill forms. This one:
+reads the sources job seekers in Israel actually use (WhatsApp groups, HireMe) with Hebrew support; works
+for any field, not only tech; runs on the user's own computer with an AI subscription they already pay
+for; and puts honesty first — it never claims what the profile doesn't have and lists the gaps instead
+(lessons 9.8–9.9).
 
 ---
 
@@ -44,11 +94,16 @@ CLI as a thin layer on top, so a UI or extension can reuse it later.
   AI output schema).
 - **csv-parse / csv-stringify** for the tracker, **yaml** for config.
 - **YAML** for config; **CSV (UTF-8 with BOM)** for the tracker so Excel shows non-English text.
-- **AI provider behind a small interface.** Version 1 uses the **Claude Code CLI** in headless mode
-  (`claude -p --output-format json --json-schema ... --tools ""`), which runs on the user's Claude
-  subscription with no API key — the same approach the prototype used. Run it from a temporary folder
-  so it only sees what is in the prompt. An Anthropic API implementation can be added later behind the
-  same interface.
+- **AI provider behind a small interface**, so the user can choose Claude, ChatGPT or Gemini, each
+  either through its CLI on the user's subscription (Claude Code, Codex CLI, Gemini CLI — no API key)
+  or through an API key. Version 1 implements only the **Claude Code CLI** in headless mode
+  (`claude -p --output-format json --json-schema ... --tools ""`) — the same approach the prototype
+  used. Run it from a temporary folder so it only sees what is in the prompt. The other providers come
+  later behind the same interface.
+- **Web UI as a local app**: `cvhelper ui` starts a small server inside cvhelper, listening only on
+  `127.0.0.1`, and opens the page in the user's normal browser. The server is what lets the page read
+  and write the workspace, build CVs, read job sites and open folders — a page alone can't. The page's
+  framework (React + Vite or plain HTML/JS) is decided when the UI phase starts.
 - Node's built-in modules for everything else where reasonable.
 
 ---
@@ -59,13 +114,14 @@ Everything for one user lives in one folder (path set in config), separate from 
 
 ```
 <workspace>/
-  config.yaml              settings, filters, paths, CV mode
+  config.yaml              settings, filters, paths, AI provider
   jobs.csv                 the tracker — the only list of jobs, and the source for duplicate checks
   profile/
     profile.yaml           facts about the user, as structured fields (see 6)
+    roles.yaml             target roles: which jobs each fits, optional predefined CV, emphasis notes
     rules.md               the user's own rules for CVs ("never claim X", "one page", ...)
     example_cv.pdf         the user's current CV, used to seed the profile and the style
-    cvs/                   predefined CVs (only in "predefined" mode) + cvs.yaml describing each
+    cvs/                   predefined CVs, each linked to a role in roles.yaml
   jobs/
     <id>/                  one folder per job, ASCII-only name (see 9.6), e.g. linkedin-4475368276
       job.json             scraped details, full description, and the AI-filled requirements object
@@ -86,11 +142,12 @@ requirements live in `jobs/<id>/`.
 
 | Column | Filled by | Meaning |
 |---|---|---|
-| `submitted` | user / submit helper | empty = not submitted, `YES` = submitted |
-| `notes` | user | free text; the submit helper can append to it |
+| `submitted` | user / UI checkbox / apply wizard | empty = not submitted, `YES` = submitted |
+| `notes` | user | free text; the apply wizard can append to it |
 | `score` | CV builder | e.g. `3/5` — must-have requirements met |
 | `filter` | add / CV builder | empty = OK, or `rejected: <reason>` |
-| `cv_status` | CV builder | empty, `built`, `predefined: <name>`, `error: ...`; user types `build` to force a (re)build |
+| `cv_choice` | AI / user | `predefined: <role>` or `tailored: <role>`; suggested by the AI, the user can change it |
+| `cv_status` | CV builder | empty, `built`, `error: ...`; user types `build` to force a (re)build |
 | `title` | add | job title |
 | `company` | add | company name |
 | `location` | add | city / remote / hybrid |
@@ -100,7 +157,7 @@ requirements live in `jobs/<id>/`.
 | `cv_file` | CV builder | path to the PDF, relative to the workspace |
 | `posted_date` | add | from the posting, if available |
 | `first_seen` | add | date the tool first added it |
-| `submitted_date` | submit helper | date marked `YES` |
+| `submitted_date` | UI checkbox / apply wizard | date marked `YES` |
 | `phone_call_date` | user | date of the first phone call; empty = none yet |
 | `interview_date` | user | date of the first interview; empty = none yet (later rounds go in `notes`) |
 | `rejected_date` | user | date of the rejection; empty = not rejected |
@@ -215,7 +272,7 @@ catches the common cases the prototype hit:
 reason in `filter` (`rejected: closed`, `rejected: internship`, `rejected: duplicate of <id>`). The CSV is
 the single source of truth for "seen before" — no separate history file like the prototype had. A link
 that matches an existing row is not added again (it is the same row); the add summary just reports it.
-The submit helper and the CV builder skip rows with a non-empty `filter`. Description-similarity repost detection (same job reposted under a new id)
+The apply wizard and the CV builder skip rows with a non-empty `filter`. Description-similarity repost detection (same job reposted under a new id)
 is a later phase.
 
 ### Also on add
@@ -239,34 +296,50 @@ The profile is stored as **structured fields**, not free text, with explicit sec
 - `education` — list: degree/course, institution, dates (optional), grade (optional), notable courses
 - `skills` — groups the user names (e.g. "Languages", "Tools", "Clinical skills")
 - `certifications`, `languages`, `military_or_service`, `volunteering`, `other`
-- `preferences` — target roles/fields, seniority, locations, work model, accepted job types
+- `preferences` — seniority, locations, work model, accepted job types (target roles live in
+  `roles.yaml`, below)
 
 Why structured: the CV builder needs exact facts it cannot rewrite (titles, dates, links), and a planned
 future feature — **auto-filling application forms** — needs exact values (first name, phone, years of
 experience, notice period, salary expectation, work authorization). Both read the same file. Expect the
 `personal` section to grow a lot for form-filling later; unknown fields simply stay empty.
 
-### Profile setup (`cvhelper init`) — open, start simple
+### Target roles (`profile/roles.yaml`)
 
-How much the setup asks interactively is **not decided yet**. Start with the minimum:
+One person, several kinds of jobs ("QA automation", "Backend developer", "IT / sysadmin"). Instead of
+separate profiles per role — which would have to be kept in sync — the one profile has a short list of
+target roles. Each role has:
+
+- a name and a one-line description of which jobs it fits;
+- optionally, a **predefined CV** (a file in `profile/cvs/`) to use as-is for those jobs;
+- optionally, **emphasis notes** for tailoring ("lead with the Playwright framework project").
+
+Different *people* each get their own workspace; switching workspaces in the UI is a later feature.
+
+### Profile setup — CV import plus a guided walkthrough
 
 1. Import the user's current CV (PDF/DOCX): the AI fills a draft `profile.yaml` in the sections above.
-2. The user reviews and corrects it in their editor. It is the only source of truth: everything true,
-   nothing else.
-3. Create `rules.md` with defaults (no invented facts, one page, keep dates and titles exact) for the
-   user to extend, and a `config.yaml` with commented defaults (mode, filters, paths).
+2. A **guided walkthrough** (in the UI; the CLI can offer a simple version) goes through each section:
+   asks about every job and project, fills gaps the CV import missed, and asks for preferences and
+   target roles. Every answer is saved to the structured fields.
+3. The user reviews the result. The profile is the only source of truth: everything true, nothing else.
+4. Create `rules.md` with defaults (no invented facts, one page, keep dates and titles exact) for the
+   user to extend, and a `config.yaml` with commented defaults (filters, paths, AI provider).
 
-A guided interview (questions about each job, project, preference), or importing extra documents, can
-come later.
+Importing extra documents (a portfolio, old CVs) can come later.
 
-### Two modes
+### CV choice per job
 
-- **generate** — the AI picks and words content from `profile.yaml` for each job; a fixed template renders
-  it. Names, titles, dates, contact details and links come from the profile as fixed data, never
-  rewritten by the AI (see 9.8).
-- **predefined** — the user supplies several finished CVs, each with a one-line description of the jobs
-  it suits (in `profile/cvs/cvs.yaml`). For each job the AI picks the best one and copies it into the
-  job folder under the standard file name. No rendering; still produces the checklist and score.
+Each job gets a `cv_choice`, either `predefined: <role>` or `tailored: <role>`:
+
+1. The AI suggests it from the job's requirements and the target roles.
+2. The user can change it per job (a dropdown in the UI, or the CSV cell) before building.
+3. "Create CV" then does one of:
+   - **predefined** — copies the role's finished CV into the job folder under the standard file name.
+     No rendering; still produces the checklist and score.
+   - **tailored** — the AI picks and words content from `profile.yaml`, guided by the role's emphasis
+     notes; a fixed template renders it. Names, titles, dates, contact details and links come from the
+     profile as fixed data, never rewritten by the AI (see 9.8).
 
 ### Filters (reject jobs the user doesn't want)
 
@@ -299,20 +372,52 @@ in config. Check the page count with pdf-lib; if it overflows, shrink the font s
 cut. Matching the user's example CV's exact look automatically is a later improvement — v1 uses the
 example only for content and as a rough style reference.
 
-### Command
+### Commands
 
+The "Create CV" button in the UI (per job or for the selected jobs), and on the command line
 `cvhelper build` — all jobs without a `cv_status` that aren't submitted or filtered.
 Options: `--limit N`, `--only <id> ...`, `--force`.
 
 ---
 
-## 7. Feature 3 — submit helper
+## 7. Feature 3 — the UI and the apply wizard
 
-`cvhelper apply` walks through jobs where `submitted` is empty and a CV exists (`--all` to include the
-rest). For each job it shows title, company, location, score, the checklist summary and notes; opens the
-CV folder; opens the job link (and the agency link) in the browser.
+### Tracker UI
 
-Keys:
+`cvhelper ui` opens the local web app (section 2):
+
+- an Excel-like list of jobs: title, company, location, score, CV choice, posted date, status;
+- a **V checkbox** per row: ticking it sets `submitted = YES` and `submitted_date` = today in
+  `jobs.csv` (through the same safe CSV helpers); unticking clears both;
+- sort, filter ("not applied", "hide rejected") and search;
+- a details panel per job: full description, requirements, checklist, links, CV choice, and the event
+  dates (phone call, interview, rejection, offer) to fill in;
+- an "Add jobs" box (paste WhatsApp messages → the same logic as `cvhelper add`) and "Create CV"
+  buttons, both with live progress, since reading jobs and building CVs take time.
+
+`jobs.csv` stays the single source of truth, so the user can still open it in Excel. If Excel has it
+locked on Windows, the UI says so and offers to retry.
+
+### Apply wizard
+
+Goes through the jobs where `submitted` is empty and a CV exists. For each job it:
+
+- opens the job link (and the agency link) in the user's normal browser (lesson 9.7);
+- shows title, company, score, the CV summary and what was changed, and which requirements are met,
+  partly met or missing;
+- opens the CV folder **with the CV file selected** (`explorer /select,` on Windows, the file manager's
+  equivalent on Linux) so it can be dragged straight into the form, and copies the CV's full path to
+  the clipboard so it can be pasted into the site's file picker;
+- offers: mark submitted, skip (with an optional note), regenerate the CV with instructions
+  ("emphasise the SQL work"), reopen the pages, stop.
+
+A browser page can't put a file into another site's upload field, so true one-click upload needs the
+**Chrome extension** (phase 7): it fills the site's upload field with the job's CV, and later fills
+form fields from the profile.
+
+### Command-line version
+
+`cvhelper apply` offers the same walk-through in the terminal, with keys:
 
 | Key | Action |
 |---|---|
@@ -339,23 +444,36 @@ one has been used on real jobs.
 CSV read/write helpers (section 4 rules), cross-platform open-folder/open-link helpers. Tests for the
 CSV helpers.
 
-**Phase 1 — add jobs (HireMe + generic).** Link parsing from pasted text, normalized link keys and the
-duplicate check, the HireMe adapter, the generic fallback (JSON-LD → text → AI), requirements extraction
-into `job.json`, closed-job detection. *Done when:* pasting a real HireMe list and a list of direct links
-fills the CSV correctly with no duplicates on a second run.
+**Phase 1 — add jobs.** Link parsing from pasted text, normalized link keys and the duplicate check, the
+HireMe and LinkedIn readers, the generic fallback (JSON-LD → text), closed-job detection, `cvhelper add`.
+*Done when:* pasting a real HireMe list and a list of direct links fills the CSV correctly with no
+duplicates on a second run.
 
-**Phase 2 — profile and CV builder (generate mode).** `cvhelper init` (CV import only), the template, `cvhelper build`,
-one-page check, checklist and score, rule-based filters. *Done when:* the user sends CVs built by it.
+**Phase 2 — UI v1.** `cvhelper ui`: the jobs list with the V checkbox, sort / filter / search, the
+details panel, the "Add jobs" box with live progress. *Done when:* the user tracks their applications in
+the UI instead of Excel.
 
-**Phase 3 — submit helper.** `cvhelper apply` with `s` / `n` (+ note) / `o` / `q`, on Windows and Linux.
+**Phase 3 — AI layer.** The provider interface with the Claude Code CLI, requirements extraction into
+`job.json` (and the CSV summary), the generic fallback's AI step, rule-based filters.
 
-**Phase 4 — more control.** `g` (regenerate with instructions), AI field filter, predefined-CV mode,
-the `event` command for status dates.
+**Phase 4 — profile.** CV import, the guided walkthrough, target roles, `rules.md`.
 
-**Phase 5 — more site adapters.** Comeet, Lever, Greenhouse, Workday, LinkedIn — one at a time, each
-with a saved sample page as a test fixture. Description-similarity repost detection.
+**Phase 5 — CVs.** CV choice per job (AI suggestion + user override), tailored and predefined CVs, the
+template, one-page check, checklist and score, "Create CV" in the UI and `cvhelper build`.
+*Done when:* the user sends CVs built by it.
 
-**Later.** UI, Chrome extension, shared scraping server.
+**Phase 6 — apply wizard.** In the UI: open the job site, CV summary and changes, requirements met /
+missing, folder with the CV selected, path copied, mark submitted / skip / regenerate. The CLI
+`cvhelper apply` version alongside.
+
+**Phase 7 — Chrome extension.** Puts the job's CV into the site's upload field; form auto-fill from the
+profile later.
+
+**Phase 8 — more.** More AI providers (ChatGPT, Gemini, API keys), more site adapters (Comeet, Lever,
+Greenhouse, Workday — each with a saved sample page as a test fixture), description-similarity repost
+detection, statistics, a demo workspace for showcasing, switching workspaces in the UI.
+
+**Later.** Sharing scraped postings between users via a server.
 
 ---
 
@@ -414,14 +532,25 @@ with a saved sample page as a test fixture. Description-similarity repost detect
    CSV is the only "seen before" list.
 6. **Profile** — structured `profile.yaml` with explicit sections (experience, projects, education,
    skills, ...), also meant for future form auto-fill (section 6).
-7. **One command** with subcommands: `init`, `add`, `build`, `apply`; `add` detects agency vs direct
-   links per link.
-8. **AI service** — Claude Code CLI for version 1.
+7. **One command** with subcommands: `init`, `add`, `build`, `apply`, `ui`; `add` detects agency vs
+   direct links per link.
+8. **AI service** — a provider interface (Claude, ChatGPT, Gemini; CLI or API key); version 1
+   implements the Claude Code CLI only (section 2).
 9. **Language** — TypeScript on Node.js (section 2).
 10. **Job id** — `<site>-<site job id>`, e.g. `linkedin-4475368276`; also the folder name (section 4).
+11. **UI** — a local web app served by cvhelper on `127.0.0.1`, opened in the user's normal browser
+    (sections 2 and 7).
+12. **Target roles instead of profiles** — one profile per person, with target roles in `roles.yaml`;
+    different people use different workspaces (section 6).
+13. **CV choice per job** — `predefined: <role>` or `tailored: <role>`, suggested by the AI, changeable
+    by the user (section 6).
+14. **Profile setup** — CV import plus a guided walkthrough (section 6).
+15. **Aim** — a personal tool first, built so it can be showcased or turned into a product later
+    (section 1).
 
 **Open**
 
 1. **Project name** — `cvhelper` is a placeholder; rename before publishing.
-2. **Profile setup flow** — start with CV import only; a guided interview and the extra details needed
-   for form auto-fill come later (section 6).
+2. **UI page framework** — React + Vite (recommended) or plain HTML/JS; decided when phase 2 starts.
+3. **Data store** — `jobs.csv` for now; whether to move to a database (with a CSV export) once the UI
+   is the main way of working.
