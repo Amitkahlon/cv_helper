@@ -156,3 +156,24 @@ button.danger:hover:not(:disabled) { background: #fdecea; }
 .wizard-foot { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface); }
 .rules-preview { white-space: pre-wrap; font: 13px/1.5 ui-monospace, monospace; }
 label.upload.card { display: block; }
+
+/* --- Jobs table: fixed column widths, resizing, column chooser --- */
+table.jobs { table-layout: fixed; }
+table.jobs td { overflow: hidden; overflow-wrap: anywhere; }
+table.jobs td select { max-width: 100%; }
+table.jobs th { position: relative; overflow: hidden; text-overflow: ellipsis; }
+.th-label { display: block; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
+.resizer { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; }
+.resizer:hover, body.resizing .resizer:active { background: var(--accent-soft); border-right: 2px solid var(--accent); }
+body.resizing { cursor: col-resize; user-select: none; }
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+.spacer { flex: 1; }
+.popover-anchor { position: relative; }
+.popover {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 280px; max-height: 420px; overflow: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .12); padding: 10px 12px;
+}
+.popover-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.column-list label { display: block; padding: 3px 0; }
+.column-list input { margin-right: 6px; }

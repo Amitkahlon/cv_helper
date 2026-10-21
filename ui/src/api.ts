@@ -29,9 +29,14 @@ export type AddEvent =
   | { type: "error"; error: string };
 
 export async function fetchJobs(): Promise<JobRow[]> {
+  return (await fetchJobTable()).rows;
+}
+
+// The tracker's rows and its columns in file order (including the user's own columns).
+export async function fetchJobTable(): Promise<{ columns: string[]; rows: JobRow[] }> {
   const response = await fetch("/api/jobs");
   if (!response.ok) throw new Error(`Loading jobs failed (HTTP ${response.status})`);
-  return (await response.json()).rows;
+  return response.json();
 }
 
 export async function updateJob(

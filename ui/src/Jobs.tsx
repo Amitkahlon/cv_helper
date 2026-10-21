@@ -1,75 +1,84 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { AddJobs } from "./AddJobs";
-import { fetchJobs, setSubmitted, updateJob, type JobRow } from "./api";
+import { fetchJobTable, setSubmitted, updateJob, type JobRow } from "./api";
+import { ColumnChooser } from "./ColumnChooser";
 import { CvChoice } from "./CvChoice";
 import type { CvEntry } from "./cvsApi";
 import { Details } from "./Details";
+import { allColumns, useColumnPrefs, type ColumnDef } from "./jobColumns";
 import { SelectionBar } from "./SelectionBar";
 import { useSelection } from "./selection";
-
-const COLUMNS = [
-  ["title", "Title"],
-  ["company", "Company"],
-  ["location", "Location"],
-  ["score", "Score"],
-  ["cv_status", "CV status"],
-  ["filter", "Filter"],
-  ["posted_date", "Posted"],
-] as const;
-
-type ColumnKey = (typeof COLUMNS)[number][0];
 
 const isSubmitted = (job: JobRow) => (job.submitted ?? "").trim() !== "";
 const isRejected = (job: JobRow) => (job.filter ?? "").trim() !== "";
 const hasCv = (job: JobRow) => job.cv_status === "built";
 
+const SELECT_WIDTH = 36;
+
+type Sort = { key: string; desc: boolean };
+const DEFAULT_SORT: Sort = { key: "first_seen", desc: true }; // newest added first
+
 export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
   const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [csvColumns, setCsvColumns] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [notSubmittedOnly, setNotSubmittedOnly] = useState(false);
   const [hideRejected, setHideRejected] = useState(false);
   const [noCvOnly, setNoCvOnly] = useState(false);
-  const [sort, setSort] = useState<{ key: ColumnKey; desc: boolean } | null>(null);
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [openId, setOpenId] = useState<string | null>(null); // the job shown in the details panel
   const [error, setError] = useState("");
+  const prefs = useColumnPrefs();
 
-  const reload = () => fetchJobs().then(setJobs, (err) => setError(String(err)));
+  const reload = () =>
+    fetchJobTable().then(
+      (table) => {
+        setJobs(table.rows);
+        setCsvColumns(table.columns);
+      },
+      (err) => setError(String(err)),
+    );
   // Reload whenever the page is shown: the Apply wizard may have changed jobs.
   useEffect(() => {
     if (active) reload();
   }, [active]);
 
-  async function change(job: JobRow, action: () => Promise<void>) {
+  async function change(action: () => Promise<void>) {
     setError("");
     try {
       await action();
-      setJobs(await fetchJobs()); // reload: the CSV may also have changed in Excel
+      await reload(); // the CSV may also have changed in Excel
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }
-  const toggleSubmitted = (job: JobRow) => change(job, () => setSubmitted(job.id, !isSubmitted(job)));
-  const chooseCv = (job: JobRow, choice: string) => change(job, () => updateJob(job.id, { cv_choice: choice }));
+  const toggleSubmitted = (job: JobRow) => change(() => setSubmitted(job.id, !isSubmitted(job)));
+  const chooseCv = (job: JobRow, choice: string) => change(() => updateJob(job.id, { cv_choice: choice }));
+
+  const columns = useMemo(() => allColumns(csvColumns), [csvColumns]);
+  const visible = columns.filter((c) => prefs.isVisible(c.key));
 
   // Click a header to sort by it; click again to reverse.
-  function sortBy(key: ColumnKey) {
-    setSort((current) => (current?.key === key ? { key, desc: !current.desc } : { key, desc: false }));
-  }
+  const sortBy = (key: string) => setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: false }));
 
   const query = search.trim().toLowerCase();
   const shown = useMemo(() => {
-    const list = jobs.filter(
-      (job) =>
-        (!notSubmittedOnly || !isSubmitted(job)) &&
-        (!hideRejected || !isRejected(job)) &&
-        (!noCvOnly || !hasCv(job)) &&
-        (!query || COLUMNS.some(([key]) => (job[key] ?? "").toLowerCase().includes(query))),
+    // Rows keep their place in the file as a tie-breaker: later rows were added later.
+    const list = jobs
+      .map((job, index) => ({ job, index }))
+      .filter(
+        ({ job }) =>
+          (!notSubmittedOnly || !isSubmitted(job)) &&
+          (!hideRejected || !isRejected(job)) &&
+          (!noCvOnly || !hasCv(job)) &&
+          (!query || ["title", "company", "location", "notes", "requirements", "filter"].some((key) => (job[key] ?? "").toLowerCase().includes(query))),
+      );
+    const direction = sort.desc ? -1 : 1;
+    list.sort(
+      (a, b) =>
+        ((a.job[sort.key] ?? "").localeCompare(b.job[sort.key] ?? "", undefined, { numeric: true }) || a.index - b.index) * direction,
     );
-    if (sort) {
-      const direction = sort.desc ? -1 : 1;
-      list.sort((a, b) => (a[sort.key] ?? "").localeCompare(b[sort.key] ?? "", undefined, { numeric: true }) * direction);
-    }
-    return list;
+    return list.map(({ job }) => job);
   }, [jobs, notSubmittedOnly, hideRejected, noCvOnly, query, sort]);
 
   const allIds = useMemo(() => jobs.map((job) => job.id).filter(Boolean), [jobs]);
@@ -86,13 +95,49 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
     if (headerBox.current) headerBox.current.indeterminate = selection.shownState === "some";
   }, [selection.shownState]);
 
+  // Drag a header's right edge to resize its column.
+  function startResize(event: ReactPointerEvent, column: ColumnDef) {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = prefs.widthOf(column);
+    const move = (e: PointerEvent) => prefs.setWidth(column.key, startWidth + e.clientX - startX);
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      document.body.classList.remove("resizing");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    document.body.classList.add("resizing");
+  }
+
+  function cell(job: JobRow, column: ColumnDef) {
+    const value = job[column.key] ?? "";
+    switch (column.kind) {
+      case "submitted":
+        return <input type="checkbox" aria-label="Submitted" checked={isSubmitted(job)} onChange={() => toggleSubmitted(job)} />;
+      case "cv_choice":
+        return <CvChoice cvs={cvs} value={value} onChange={(choice) => chooseCv(job, choice)} />;
+      case "link":
+        return value && /^(https?:|mailto:)/.test(value) ? (
+          <a href={value} target="_blank" rel="noreferrer">
+            {column.label.toLowerCase()}
+          </a>
+        ) : null;
+      default:
+        return value;
+    }
+  }
+
+  const tableWidth = SELECT_WIDTH + visible.reduce((sum, c) => sum + prefs.widthOf(c), 0);
   const opened = jobs.find((job) => job.id === openId);
 
   return (
     <>
       <AddJobs onAdded={reload} />
       <div className="controls">
-        <input type="search" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input type="search" placeholder="Search title, company, notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <label>
           <input type="checkbox" checked={notSubmittedOnly} onChange={(e) => setNotSubmittedOnly(e.target.checked)} /> Not
           submitted
@@ -104,12 +149,20 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
         <label>
           <input type="checkbox" checked={noCvOnly} onChange={(e) => setNoCvOnly(e.target.checked)} /> No CV yet
         </label>
+        <span className="spacer" />
+        <ColumnChooser columns={columns} prefs={prefs} />
       </div>
       <SelectionBar selection={selection} shownCount={shownIds.length} cvs={cvs} labelOf={titleOf} onChanged={reload} />
       {error && <p className="error">{error}</p>}
       <div className="layout">
         <div className="table-wrap">
-          <table>
+          <table className="jobs" style={{ width: tableWidth }}>
+            <colgroup>
+              <col style={{ width: SELECT_WIDTH }} />
+              {visible.map((c) => (
+                <col key={c.key} style={{ width: prefs.widthOf(c) }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
                 <th className="select-cell" title="Select all shown (Shift-click a row's box to select a range)">
@@ -121,16 +174,24 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
                     onChange={() => selection.selectShown(selection.shownState !== "all")}
                   />
                 </th>
-                <th>Submitted</th>
-                {COLUMNS.map(([key, label]) => (
-                  <th key={key} className="sortable" onClick={() => sortBy(key)}>
-                    {label}
-                    {sort?.key === key ? (sort.desc ? " ▼" : " ▲") : ""}
+                {visible.map((c) => (
+                  <th key={c.key} className={c.kind ? undefined : "sortable"} onClick={() => !c.kind && sortBy(c.key)}>
+                    <span className="th-label">
+                      {c.label}
+                      {sort.key === c.key ? (sort.desc ? " ▼" : " ▲") : ""}
+                    </span>
+                    <span
+                      className="resizer"
+                      title="Drag to resize"
+                      onPointerDown={(e) => startResize(e, c)}
+                      onClick={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        prefs.setWidth(c.key, c.width); // double-click: back to the default width
+                      }}
+                    />
                   </th>
                 ))}
-                <th>Chosen CV</th>
-                <th>Link 1</th>
-                <th>Link 2</th>
               </tr>
             </thead>
             <tbody>
@@ -149,35 +210,20 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
                       onClick={(e) => selection.toggle(job.id, e.shiftKey)}
                     />
                   </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" aria-label="Submitted" checked={isSubmitted(job)} onChange={() => toggleSubmitted(job)} />
-                  </td>
-                  {COLUMNS.map(([key]) => (
-                    <td key={key} dir="auto" className={key === "filter" ? "clip" : undefined} title={job[key]}>
-                      {job[key]}
+                  {visible.map((c) => (
+                    <td key={c.key} dir="auto" title={c.kind ? undefined : job[c.key]} onClick={c.kind ? (e) => e.stopPropagation() : undefined}>
+                      {cell(job, c)}
                     </td>
                   ))}
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <CvChoice cvs={cvs} value={job.cv_choice ?? ""} onChange={(choice) => chooseCv(job, choice)} />
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {job.job_link && (
-                      <a href={job.job_link} target="_blank" rel="noreferrer">
-                        link 1
-                      </a>
-                    )}
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {job.agency_link && (
-                      <a href={job.agency_link} target="_blank" rel="noreferrer">
-                        link 2
-                      </a>
-                    )}
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {shown.length === 0 && (
+            <p className="empty">
+              {jobs.length === 0 ? "No jobs yet: paste links or WhatsApp messages in Add jobs above." : "No jobs match the search and filters."}
+            </p>
+          )}
         </div>
         {opened && (
           <Details
