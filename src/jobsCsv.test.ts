@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { addJobs, readJobs, updateJob } from "./jobsCsv.js";
+import { addJobs, deleteJobs, readJobs, updateJob, updateJobs } from "./jobsCsv.js";
 
 let dir: string;
 let csvPath: string;
@@ -68,5 +68,22 @@ describe("updateJob", () => {
   it("fails for an unknown id", async () => {
     await writeCsv(["id,title", "1,QA"]);
     await expect(updateJob(csvPath, "9", { notes: "x" })).rejects.toThrow("No job with id 9");
+  });
+});
+
+describe("updateJobs / deleteJobs", () => {
+  it("changes several rows in one go and reports unknown ids", async () => {
+    await writeCsv(["id,submitted,my_column", "1,,a", "2,,b", "3,,c"]);
+    const missing = await updateJobs(csvPath, { "1": { submitted: "YES" }, "3": { submitted: "YES", notes: "x" }, "9": { submitted: "YES" } });
+    expect(missing).toEqual(["9"]);
+    const table = await readJobs(csvPath);
+    expect(table.columns).toEqual(["id", "submitted", "my_column", "notes"]);
+    expect(table.rows.map((r) => r.submitted)).toEqual(["YES", "", "YES"]);
+  });
+
+  it("deletes rows by id and keeps the rest", async () => {
+    await writeCsv(["id,title", "1,a", "2,b", "3,c"]);
+    expect(await deleteJobs(csvPath, ["1", "3", "9"])).toBe(2);
+    expect((await readJobs(csvPath)).rows).toEqual([{ id: "2", title: "b" }]);
   });
 });

@@ -80,7 +80,9 @@ th, td { padding: 6px 10px; text-align: start; border-bottom: 1px solid var(--bo
 th { background: #f0f2f5; font-weight: 600; font-size: 13px; white-space: nowrap; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: #f7f9fc; }
-tr.selected, tr.selected:hover { background: var(--accent-soft); }
+tr.opened, tr.opened:hover { background: var(--accent-soft); }
+tr.checked { background: #f1f5ff; }
+tr.checked td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .sortable { cursor: pointer; user-select: none; }
 .clip { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .count { color: var(--muted); margin-top: 8px; }
@@ -123,3 +125,17 @@ tr.selected, tr.selected:hover { background: var(--accent-soft); }
 .bar { height: 8px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; }
 .bar > div { height: 100%; background: var(--accent); }
 .checklist { list-style: none; padding-left: 0; } .checklist li { margin: 3px 0; }
+
+/* --- Selection --- */
+.select-cell { width: 32px; text-align: center; }
+.select-cell input { cursor: pointer; }
+.selection-bar {
+  position: sticky; top: var(--header-h); z-index: 6; background: var(--surface);
+  border: 1px solid var(--accent); border-radius: var(--radius); padding: 8px 12px; margin: 0 0 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .06);
+}
+.selection-bar .divider { width: 1px; align-self: stretch; background: var(--border); }
+.selection-bar button.current { border-color: var(--accent); background: var(--accent-soft); }
+.action-form { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; }
+button.danger { color: var(--danger); border-color: #f1c4c0; }
+button.danger:hover:not(:disabled) { background: #fdecea; }

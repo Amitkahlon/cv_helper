@@ -117,18 +117,23 @@ export async function suggestCv(id: string): Promise<string> {
 
 export const cvFileUrl = (id: string) => `/api/jobs/${encodeURIComponent(id)}/cv-file`;
 
-export type BuildEvent =
-  | { type: "start"; count: number }
-  | { type: "result"; id: string; ok: boolean; score?: string; choice?: string; error?: string }
+export type BulkEvent =
+  | { type: "start"; action: string; count: number }
+  | { type: "result"; id: string; ok: boolean; message?: string }
   | { type: "done" }
   | { type: "error"; error: string };
 
-// Builds CVs for every job that needs one; calls onEvent as each one finishes.
-export async function buildAll(onEvent: (event: BuildEvent) => void): Promise<void> {
-  const response = await fetch("/api/build", {
+// Runs one action on many jobs (src/bulk.ts); calls onEvent as each job is done.
+export async function runBulk(
+  action: string,
+  ids: string[],
+  params: Record<string, string>,
+  onEvent: (event: BulkEvent) => void,
+): Promise<void> {
+  const response = await fetch("/api/jobs/bulk", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: "{}",
+    body: JSON.stringify({ action, ids, params }),
   });
   await readLines(response, (line) => onEvent(JSON.parse(line)));
 }

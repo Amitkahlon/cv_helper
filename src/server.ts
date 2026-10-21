@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 import { addLinks, jobJsonPath } from "./add.js";
 import { openJobLinks, prepareJobCv, showInFolder } from "./apply.js";
 import { workspaceAi } from "./ai/default.js";
+import type { AiProvider } from "./ai/provider.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
-import { addCv, cvChoice, cvFilePath, deleteCv, loadCvs, saveCvs } from "./cvLibrary.js";
-import { buildCv, jobCvFile, jobsNeedingCv, loadCvReport, parseChoice, suggestCvChoice } from "./cvBuild.js";
+import { addCv, cvFilePath, deleteCv, loadCvs, saveCvs } from "./cvLibrary.js";
+import { buildCv, isKnownChoice, jobCvFile, loadCvReport, suggestCvChoice } from "./cvBuild.js";
+import { BULK_ACTIONS } from "./bulk.js";
 import type { JobRecord } from "./add.js";
 import type { Requirements } from "./requirements.js";
 import { today } from "./dates.js";
@@ -38,7 +40,7 @@ export function createServer(initialWorkspace: string): express.Express {
   app.use(onlyThisComputer);
   app.use(express.json({ limit: "5mb" }));
   let adding = false; // one "add jobs" run at a time (it uses one browser profile)
-  let building = false; // one bulk CV build at a time
+  let busy = ""; // the slow bulk action running now (one at a time), or ""
   let currentJob = ""; // the job the Apply wizard is showing, for the Chrome extension
 
   app.get("/api/jobs", async (_req, res) => {
@@ -66,12 +68,7 @@ export function createServer(initialWorkspace: string): express.Express {
     }
     if (typeof req.body?.cv_choice === "string") {
       const choice = req.body.cv_choice;
-      const parsed = parseChoice(choice);
-      const known =
-        choice === "" ||
-        (parsed?.kind === "predefined" && (await loadCvs(workspace)).some((cv) => cvChoice(cv.file) === choice)) ||
-        (parsed?.kind === "tailored" && (parsed.role === "" || (await loadProfile(workspace)).roles.some((r) => r.name === parsed.role)));
-      if (!known) {
+      if (!(await isKnownChoice(workspace, choice))) {
         res.status(400).json({ error: `Unknown CV choice: ${choice}` });
         return;
       }
@@ -132,33 +129,39 @@ export function createServer(initialWorkspace: string): express.Express {
     }
   });
 
-  // Body: { "ids"?: [...] } (default: every job that needs a CV). Streams one
-  // JSON object per line as each CV is built.
-  app.post("/api/build", async (req, res) => {
-    if (building) {
-      res.status(409).json({ error: "Already building CVs; wait for that to finish." });
+  // Body: { "action": one of BULK_ACTIONS, "ids": [...], "params"?: {...} }.
+  // Streams one JSON object per line: start, a result per job, then done (or error).
+  app.post("/api/jobs/bulk", async (req, res) => {
+    const name = String(req.body?.action ?? "");
+    const action = Object.hasOwn(BULK_ACTIONS, name) ? BULK_ACTIONS[name] : undefined;
+    const ids: string[] = Array.isArray(req.body?.ids) ? [...new Set<string>(req.body.ids.map(String))] : [];
+    if (!action) {
+      res.status(400).json({ error: `Unknown action: ${name}` });
       return;
     }
-    building = true;
+    if (ids.length === 0) {
+      res.status(400).json({ error: "No jobs selected" });
+      return;
+    }
+    if (action.slow && busy) {
+      res.status(409).json({ error: `Still running "${busy}"; wait for it to finish.` });
+      return;
+    }
+    if (action.slow) busy = name;
     res.setHeader("Content-Type", "application/x-ndjson");
     const send = (event: object) => res.write(JSON.stringify(event) + "\n");
+    let ai: Promise<AiProvider> | undefined;
     try {
-      const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : await jobsNeedingCv(workspace);
-      send({ type: "start", count: ids.length });
-      const ai = await workspaceAi(workspace);
-      for (const id of ids) {
-        try {
-          const report = await buildCv(workspace, ai, id);
-          send({ type: "result", id, ok: true, score: report.score, choice: report.choice });
-        } catch (err) {
-          send({ type: "result", id, ok: false, error: errorMessage(err) });
-        }
-      }
+      send({ type: "start", action: name, count: ids.length });
+      const params = req.body?.params && typeof req.body.params === "object" ? req.body.params : {};
+      await action.run(ids, { workspace, params, ai: () => (ai ??= workspaceAi(workspace)) }, (id, ok, message) =>
+        send({ type: "result", id, ok, message }),
+      );
       send({ type: "done" });
     } catch (err) {
       send({ type: "error", error: errorMessage(err) });
     } finally {
-      building = false;
+      if (action.slow) busy = "";
       res.end();
     }
   });

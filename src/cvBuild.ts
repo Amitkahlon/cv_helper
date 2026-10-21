@@ -91,6 +91,16 @@ export function parseChoice(choice: string): { kind: "predefined"; file: string 
   return null;
 }
 
+// Whether a cv_choice value points at something that exists: "" (none), a
+// library CV, or tailored for an existing target role (or no role).
+export async function isKnownChoice(workspace: string, choice: string): Promise<boolean> {
+  if (choice === "") return true;
+  const parsed = parseChoice(choice);
+  if (parsed?.kind === "predefined") return (await loadCvs(workspace)).some((cv) => cv.file === parsed.file);
+  if (parsed?.kind === "tailored") return parsed.role === "" || (await loadProfile(workspace)).roles.some((r) => r.name === parsed.role);
+  return false;
+}
+
 // Asks the AI which CV fits the job; answers with a cv_choice value.
 export async function suggestCvChoice(
   ai: AiProvider,

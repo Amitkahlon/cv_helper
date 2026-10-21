@@ -52,6 +52,34 @@ export async function updateJob(csvPath: string, id: string, changes: JobRow): P
   await writeJobs(csvPath, table);
 }
 
+// Changes several rows in one write: { id: { column: value } }. Answers with
+// the ids that aren't in the tracker (those are skipped).
+export async function updateJobs(csvPath: string, changesById: Record<string, JobRow>): Promise<string[]> {
+  const table = await readJobs(csvPath);
+  const missing: string[] = [];
+  for (const [id, changes] of Object.entries(changesById)) {
+    const row = table.rows.find((r) => r.id === id);
+    if (!row) {
+      missing.push(id);
+      continue;
+    }
+    addMissingColumns(table, Object.keys(changes));
+    Object.assign(row, changes);
+  }
+  if (missing.length < Object.keys(changesById).length) await writeJobs(csvPath, table);
+  return missing;
+}
+
+// Removes rows by id in one write; answers with how many were removed.
+export async function deleteJobs(csvPath: string, ids: string[]): Promise<number> {
+  const table = await readJobs(csvPath);
+  const remove = new Set(ids);
+  const before = table.rows.length;
+  table.rows = table.rows.filter((row) => !remove.has(row.id));
+  if (table.rows.length !== before) await writeJobs(csvPath, table);
+  return before - table.rows.length;
+}
+
 function addMissingColumns(table: JobsTable, names: string[]): void {
   for (const name of names) {
     if (!table.columns.includes(name)) table.columns.push(name);
