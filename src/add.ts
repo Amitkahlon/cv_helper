@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { BrowserContext, Page } from "playwright";
 import { today } from "./dates.js";
@@ -11,6 +11,7 @@ import { fetchGenericJob } from "./sources/generic.js";
 import { fetchLinkedinJob } from "./sources/linkedin.js";
 import { workspaceAi } from "./ai/default.js";
 import type { AiProvider } from "./ai/provider.js";
+import { repostOf } from "./repost.js";
 import { jobsCsvPath } from "./workspace.js";
 
 // Pause after each job, per site (LinkedIn rate-limits quickly, lesson 9.10).
@@ -28,7 +29,7 @@ export interface JobRecord extends Omit<ScrapedJob, "employer_link"> {
 }
 
 export type Outcome =
-  | "added" | "closed" | "duplicate" | "unsupported" | "not found" | "failed" | "cancelled";
+  | "added" | "closed" | "repost" | "duplicate" | "unsupported" | "not found" | "failed" | "cancelled";
 
 export interface LinkResult {
   link: string;
@@ -50,7 +51,18 @@ export async function addLinks(
   options: AddOptions,
 ): Promise<{ results: LinkResult[]; loggedOut: boolean }> {
   const csvPath = jobsCsvPath(workspace);
-  const known = knownKeys((await readJobs(csvPath)).rows);
+  const existingRows = (await readJobs(csvPath)).rows;
+  const known = knownKeys(existingRows);
+  // Titles and descriptions of the jobs so far, for spotting reposts; descriptions are read when needed.
+  const earlier = existingRows.map((row) => ({ id: row.id, title: row.title ?? "", description: "" }));
+  const descriptionsOf = async (title: string) => {
+    for (const e of earlier) {
+      if (!e.description && e.title.trim().toLowerCase() === title.trim().toLowerCase()) {
+        e.description = await readFile(jobJsonPath(workspace, e.id), "utf8").then((t) => JSON.parse(t).description ?? "", () => "");
+      }
+    }
+    return earlier;
+  };
   const results: LinkResult[] = [];
   const report = (result: LinkResult) => {
     results.push(result);
@@ -119,14 +131,24 @@ export async function addLinks(
       }
 
       const record = jobRecord(jobIdFor(info), info, jobLink, agencyLink, job, today());
+      const reposted = job.closed ? "" : repostOf(job, await descriptionsOf(job.title));
+      const row = csvRow(record);
+      if (reposted) row.filter = `rejected: repost of ${reposted}`;
       await saveJobJson(workspace, record);
-      if (!(await options.saveRow(() => addJobs(csvPath, [csvRow(record)])))) {
+      if (!(await options.saveRow(() => addJobs(csvPath, [row])))) {
         report({ link, outcome: "cancelled" });
         break;
       }
       known.add(info.key);
       if (employerKey) known.add(employerKey);
-      report({ link, outcome: job.closed ? "closed" : "added", id: record.id, title: record.title });
+      earlier.push({ id: record.id, title: record.title, description: record.description });
+      report({
+        link,
+        outcome: job.closed ? "closed" : reposted ? "repost" : "added",
+        id: record.id,
+        title: record.title,
+        detail: reposted ? `same job as ${reposted}` : undefined,
+      });
       await new Promise((resolve) => setTimeout(resolve, PAUSE_MS[info.site] ?? 1000));
     }
   } finally {

@@ -20,7 +20,7 @@ export function AddJobs({ onAdded }: { onAdded: () => void }) {
         break;
       case "result":
         print(`${event.outcome}: ${event.title || event.link}${event.detail ? ` (${event.detail})` : ""}`);
-        if (event.outcome === "added" || event.outcome === "closed") onAdded();
+        if (["added", "closed", "repost"].includes(event.outcome)) onAdded();
         break;
       case "done":
         print(
