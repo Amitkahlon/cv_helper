@@ -4,13 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import open from "open";
+import { addLinks } from "./add.js";
 import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
 import { createServer } from "./server.js";
 import { loadSettings, saveSettings } from "./settings.js";
 import { createWorkspace, jobsCsvPath, workspaceExists } from "./workspace.js";
 
-const USAGE = "Usage: cvhelper <init|links|ui>";
+const USAGE = "Usage: cvhelper <init|add|links|ui>";
 const UI_PORT = 4321;
 
 const [command] = process.argv.slice(2);
@@ -18,6 +19,9 @@ const [command] = process.argv.slice(2);
 switch (command) {
   case "init":
     await runInit();
+    break;
+  case "add":
+    await runAdd();
     break;
   case "links":
     await runLinks();
@@ -108,11 +112,35 @@ async function runLinks(): Promise<void> {
   for (const link of skipped) console.log(`  ${link}`);
 }
 
+async function runAdd(): Promise<void> {
+  const workspace = await requireWorkspace();
+  const { jobLinks, skipped } = extractJobLinks(await readPasted());
+  if (skipped.length) console.log(`\nIgnoring ${skipped.length} non-job link(s).`);
+  console.log(`Checking ${jobLinks.length} job link(s)...\n`);
+
+  const { results, loggedOut } = await addLinks(workspace, jobLinks, {
+    saveRow: withCsvRetry,
+    onResult: (r) => {
+      const what = r.id ? `${r.id}  ${r.title}` : r.link;
+      console.log(`  ${r.outcome.padEnd(11)} ${what}${r.detail ? `  (${r.detail})` : ""}`);
+    },
+  });
+
+  const counts = new Map<string, number>();
+  for (const r of results) counts.set(r.outcome, (counts.get(r.outcome) ?? 0) + 1);
+  console.log("\n" + [...counts].map(([outcome, n]) => `${n} ${outcome}`).join(", "));
+  if (loggedOut) {
+    console.log("WARNING: HireMe answered as logged out, so company names and apply links are missing.");
+  }
+}
+
+// Reads pasted text until Ctrl+D on an empty line. Reading through readline
+// (instead of reading stdin to its end) keeps stdin usable for later prompts.
 async function readPasted(): Promise<string> {
-  console.log(
-    "Paste the messages, then press Enter and Ctrl+D (on Windows: Ctrl+Z, then Enter):",
-  );
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(chunk);
-  return Buffer.concat(chunks).toString("utf8");
+  console.log("Paste the messages, then press Enter and Ctrl+D:");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  rl.on("SIGINT", () => process.exit(130)); // keep Ctrl+C working while pasting
+  const lines: string[] = [];
+  for await (const line of rl) lines.push(line);
+  return lines.join("\n");
 }

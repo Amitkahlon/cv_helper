@@ -6,3 +6,12 @@ th { background: #f3f3f3; }
 .controls { display: flex; gap: 12px; align-items: center; }
 .sortable { cursor: pointer; }
 .clip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.box { margin: 12px 0; }
+.box textarea { width: 100%; box-sizing: border-box; }
+.log { font-family: monospace; font-size: 13px; }
+.layout { display: flex; gap: 16px; align-items: flex-start; }
+tbody tr { cursor: pointer; }
+tr.selected { background: #eef3ff; }
+.details { position: sticky; top: 16px; flex: 0 0 40%; max-height: calc(100vh - 32px); overflow: auto; border: 1px solid #ccc; padding: 8px 12px; margin-top: 12px; }
+.details .close { float: right; }
+.description { white-space: pre-wrap; }

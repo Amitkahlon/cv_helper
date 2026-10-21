@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { AddJobs } from "./AddJobs";
 import { fetchJobs, setSubmitted, type JobRow } from "./api";
+import { Details } from "./Details";
 
 const COLUMNS = [
   ["title", "Title"],
@@ -22,10 +24,12 @@ export function App() {
   const [notSubmittedOnly, setNotSubmittedOnly] = useState(false);
   const [hideRejected, setHideRejected] = useState(false);
   const [sort, setSort] = useState<{ key: ColumnKey; desc: boolean } | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  const reload = () => fetchJobs().then(setJobs, (err) => setError(String(err)));
   useEffect(() => {
-    fetchJobs().then(setJobs, (err) => setError(String(err)));
+    reload();
   }, []);
 
   async function toggle(job: JobRow) {
@@ -58,9 +62,12 @@ export function App() {
     );
   }
 
+  const selected = jobs.find((job) => job.id === selectedId);
+
   return (
     <main>
       <h1>Jobs</h1>
+      <AddJobs onAdded={reload} />
       <div className="controls">
         <input
           type="search"
@@ -86,37 +93,48 @@ export function App() {
         </label>
       </div>
       {error && <p className="error">{error}</p>}
-      <table>
-        <thead>
-          <tr>
-            <th>Submitted</th>
-            {COLUMNS.map(([key, label]) => (
-              <th key={key} className="sortable" onClick={() => sortBy(key)}>
-                {label}
-                {sort?.key === key ? (sort.desc ? " ▼" : " ▲") : ""}
-              </th>
-            ))}
-            <th>Link 1</th>
-            <th>Link 2</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((job) => (
-            <tr key={job.id}>
-              <td>
-                <input type="checkbox" checked={isSubmitted(job)} onChange={() => toggle(job)} />
-              </td>
-              {COLUMNS.map(([key]) => (
-                <td key={key} dir="auto" className={key === "filter" ? "clip" : undefined} title={job[key]}>
-                  {job[key]}
-                </td>
+      <div className="layout">
+        <table>
+          <thead>
+            <tr>
+              <th>Submitted</th>
+              {COLUMNS.map(([key, label]) => (
+                <th key={key} className="sortable" onClick={() => sortBy(key)}>
+                  {label}
+                  {sort?.key === key ? (sort.desc ? " ▼" : " ▲") : ""}
+                </th>
               ))}
-              <td>{job.job_link && <a href={job.job_link} target="_blank" rel="noreferrer">link 1</a>}</td>
-              <td>{job.agency_link && <a href={job.agency_link} target="_blank" rel="noreferrer">link 2</a>}</td>
+              <th>Link 1</th>
+              <th>Link 2</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {shown.map((job) => (
+              <tr
+                key={job.id}
+                className={job.id === selectedId ? "selected" : undefined}
+                onClick={() => setSelectedId(job.id)}
+              >
+                <td onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={isSubmitted(job)} onChange={() => toggle(job)} />
+                </td>
+                {COLUMNS.map(([key]) => (
+                  <td key={key} dir="auto" className={key === "filter" ? "clip" : undefined} title={job[key]}>
+                    {job[key]}
+                  </td>
+                ))}
+                <td onClick={(e) => e.stopPropagation()}>
+                  {job.job_link && <a href={job.job_link} target="_blank" rel="noreferrer">link 1</a>}
+                </td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  {job.agency_link && <a href={job.agency_link} target="_blank" rel="noreferrer">link 2</a>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {selected && <Details job={selected} onClose={() => setSelectedId(null)} />}
+      </div>
       <p>
         {shown.length} of {jobs.length} jobs
       </p>

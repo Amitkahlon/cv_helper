@@ -1,9 +1,7 @@
 import { chromium, errors, type BrowserContext, type Page, type Response } from "playwright";
-import type { ScrapedJob } from "../job.js";
+import { JobNotFoundError, type ScrapedJob } from "../job.js";
 
 const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
-
-export class JobNotFoundError extends Error {}
 
 export interface HiremeResult {
   job: ScrapedJob;

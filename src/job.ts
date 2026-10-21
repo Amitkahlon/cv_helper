@@ -1,3 +1,6 @@
+// The site says this job doesn't exist (removed, or a bad link).
+export class JobNotFoundError extends Error {}
+
 // What a site reader gets from one job page. Field names match job.json.
 export interface ScrapedJob {
   title: string;
