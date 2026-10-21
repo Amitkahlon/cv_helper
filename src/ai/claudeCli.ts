@@ -39,7 +39,7 @@ export function claudeCli(options: { model?: string } = {}): AiProvider {
 }
 
 // Runs a command with `input` on stdin, from a fresh empty folder; resolves with stdout.
-async function run(command: string, args: string[], input: string): Promise<string> {
+export async function run(command: string, args: string[], input: string): Promise<string> {
   const cwd = await mkdtemp(path.join(os.tmpdir(), "cvhelper-ai-"));
   try {
     return await new Promise<string>((resolve, reject) => {
@@ -55,7 +55,7 @@ async function run(command: string, args: string[], input: string): Promise<stri
       child.stderr.on("data", (chunk) => (stderr += chunk));
       child.on("error", (err) => {
         clearTimeout(timer);
-        reject(new Error(`Could not run ${command}: ${err.message}. Is the Claude Code CLI installed?`));
+        reject(new Error(`Could not run ${command}: ${err.message}. Is it installed?`));
       });
       child.on("close", (code) => {
         clearTimeout(timer);

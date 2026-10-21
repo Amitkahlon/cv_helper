@@ -96,68 +96,85 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
           Not submitted
         </label>
         <label>
-          <input
-            type="checkbox"
-            checked={hideRejected}
-            onChange={(e) => setHideRejected(e.target.checked)}
-          />
+          <input type="checkbox" checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)} />
           Hide rejected
         </label>
       </div>
       {error && <p className="error">{error}</p>}
       <div className="layout">
-        <table>
-          <thead>
-            <tr>
-              <th>Submitted</th>
-              {COLUMNS.map(([key, label]) => (
-                <th key={key} className="sortable" onClick={() => sortBy(key)}>
-                  {label}
-                  {sort?.key === key ? (sort.desc ? " ▼" : " ▲") : ""}
-                </th>
-              ))}
-              <th>Chosen CV</th>
-              <th>Link 1</th>
-              <th>Link 2</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((job) => (
-              <tr
-                key={job.id}
-                className={job.id === selectedId ? "selected" : undefined}
-                onClick={() => setSelectedId(job.id)}
-              >
-                <td onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={isSubmitted(job)} onChange={() => toggle(job)} />
-                </td>
-                {COLUMNS.map(([key]) => (
-                  <td key={key} dir="auto" className={key === "filter" ? "clip" : undefined} title={job[key]}>
-                    {job[key]}
-                  </td>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Submitted</th>
+                {COLUMNS.map(([key, label]) => (
+                  <th key={key} className="sortable" onClick={() => sortBy(key)}>
+                    {label}
+                    {sort?.key === key ? (sort.desc ? " ▼" : " ▲") : ""}
+                  </th>
                 ))}
-                <td onClick={(e) => e.stopPropagation()}>
-                  <CvChoice cvs={cvs} value={job.cv_choice ?? ""} onChange={(choice) => chooseCv(job, choice)} />
-                </td>
-                <td onClick={(e) => e.stopPropagation()}>
-                  {job.job_link && <a href={job.job_link} target="_blank" rel="noreferrer">link 1</a>}
-                </td>
-                <td onClick={(e) => e.stopPropagation()}>
-                  {job.agency_link && <a href={job.agency_link} target="_blank" rel="noreferrer">link 2</a>}
-                </td>
+                <th>Chosen CV</th>
+                <th>Link 1</th>
+                <th>Link 2</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {selected && <Details
-              job={selected}
-              cvs={cvs}
-              onChooseCv={(choice) => chooseCv(selected, choice)}
-              onClose={() => setSelectedId(null)}
-              onChanged={reload}
-            />}
+            </thead>
+            <tbody>
+              {shown.map((job) => (
+                <tr
+                  key={job.id}
+                  className={job.id === selectedId ? "selected" : undefined}
+                  onClick={() => setSelectedId(job.id)}
+                >
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={isSubmitted(job)} onChange={() => toggle(job)} />
+                  </td>
+                  {COLUMNS.map(([key]) => (
+                    <td
+                      key={key}
+                      dir="auto"
+                      className={key === "filter" ? "clip" : undefined}
+                      title={job[key]}
+                    >
+                      {job[key]}
+                    </td>
+                  ))}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <CvChoice
+                      cvs={cvs}
+                      value={job.cv_choice ?? ""}
+                      onChange={(choice) => chooseCv(job, choice)}
+                    />
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {job.job_link && (
+                      <a href={job.job_link} target="_blank" rel="noreferrer">
+                        link 1
+                      </a>
+                    )}
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {job.agency_link && (
+                      <a href={job.agency_link} target="_blank" rel="noreferrer">
+                        link 2
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {selected && (
+          <Details
+            job={selected}
+            cvs={cvs}
+            onChooseCv={(choice) => chooseCv(selected, choice)}
+            onClose={() => setSelectedId(null)}
+            onChanged={reload}
+          />
+        )}
       </div>
-      <p>
+      <p className="count">
         {shown.length} of {jobs.length} jobs
       </p>
     </>

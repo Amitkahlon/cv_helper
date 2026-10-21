@@ -166,9 +166,9 @@ export function ProfilePage() {
   const setProfile = (key: string, value: unknown) => setForm({ ...form, profile: { ...form.profile, [key]: value } });
 
   return (
-    <div className="profile">
+    <div className="page">
       <div className="toolbar">
-        <button onClick={save} disabled={!!busy || !dirty}>
+        <button className="primary" onClick={save} disabled={!!busy || !dirty}>
           Save
         </button>
         <button onClick={ask} disabled={!!busy}>

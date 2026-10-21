@@ -122,7 +122,7 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
   // --- Start screen ---
   if (!queue) {
     return (
-      <div className="profile">
+      <div className="page">
         <p>
           {waiting === null ? "Counting jobs..." : `${waiting} job(s) not submitted and not rejected, newest first.`}
         </p>
@@ -137,7 +137,7 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
           in its folder automatically (selected, ready to drag)
         </label>
         <p>
-          <button onClick={start} disabled={!!busy || waiting === 0}>
+          <button className="primary" onClick={start} disabled={!!busy || waiting === 0}>
             Start
           </button>
         </p>
@@ -149,7 +149,7 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
   // --- Finished ---
   if (!job) {
     return (
-      <div className="profile">
+      <div className="page">
         <p>
           Done: {counts.submitted} submitted, {counts.skipped} skipped.
         </p>
@@ -162,12 +162,12 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
   const chosen = cvs.find((cv) => cvChoice(cv.file) === job.cv_choice);
   const requirements = details?.requirements;
   return (
-    <div className="profile">
+    <div className="page">
       <div className="toolbar">
         <b>
           Job {index + 1} of {queue.length}
         </b>
-        <button onClick={() => submitted(job)} disabled={!!busy}>
+        <button className="primary" onClick={() => submitted(job)} disabled={!!busy}>
           Submitted → next
         </button>
         <button onClick={() => skip(job)} disabled={!!busy}>

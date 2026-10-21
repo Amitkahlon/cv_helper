@@ -60,7 +60,7 @@ export function AddJobs({ onAdded }: { onAdded: () => void }) {
         onChange={(e) => setText(e.target.value)}
       />
       <div>
-        <button onClick={run} disabled={running || !text.trim()}>
+        <button className="primary" onClick={run} disabled={running || !text.trim()}>
           {running ? "Adding..." : "Add"}
         </button>
       </div>

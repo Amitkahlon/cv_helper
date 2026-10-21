@@ -7,7 +7,7 @@ import open from "open";
 import { readFile, writeFile } from "node:fs/promises";
 import YAML from "yaml";
 import { addLinks } from "./add.js";
-import { defaultAi } from "./ai/default.js";
+import { workspaceAi } from "./ai/default.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
 import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
@@ -166,7 +166,7 @@ async function runProfile(args: string[]): Promise<void> {
   const workspace = await requireWorkspace();
   const content = await readFile(file);
   const text = await cvText(content, file);
-  const ai = defaultAi();
+  const ai = await workspaceAi(workspace);
   console.log(`Reading ${path.basename(file)} with ${ai.name}...`);
   const draft = await importCv(ai, text);
   await saveExampleCv(workspace, content, file);
@@ -193,7 +193,7 @@ async function runRequirements(args: string[]): Promise<void> {
     0,
     limit,
   );
-  const ai = defaultAi();
+  const ai = await workspaceAi(workspace);
   console.log(`Extracting requirements for ${todo.length} job(s) with ${ai.name}...\n`);
 
   for (const id of todo) {

@@ -56,7 +56,7 @@ export function CvsPage({ cvs, onChange }: { cvs: CvEntry[]; onChange: (cvs: CvE
     onChange(cvs.map((cv) => (cv.file === file ? { ...cv, [field]: value } : cv)));
 
   return (
-    <div className="profile">
+    <div className="page">
       <div className="toolbar">
         <label className="upload">
           Upload CVs (PDF or DOCX, several at once):{" "}

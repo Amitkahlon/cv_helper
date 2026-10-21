@@ -5,7 +5,7 @@ import { SECTION_KEYS, type Profile, type ProfileQuestion, type Role } from "./p
 const SCHEMA = object({
   questions: arrayOf(
     object({
-      section: { enum: [...SECTION_KEYS] },
+      section: { type: "string", enum: [...SECTION_KEYS] },
       entry: { type: ["integer", "null"] },
       question: STRING,
     }),

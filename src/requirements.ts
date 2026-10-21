@@ -1,6 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { jobJsonPath, type JobRecord } from "./add.js";
 import type { AiProvider } from "./ai/provider.js";
+import { loadConfig } from "./config.js";
+import { filterReason } from "./filters.js";
 import { readJobs, updateJob } from "./jobsCsv.js";
 import { jobsCsvPath } from "./workspace.js";
 
@@ -28,11 +30,12 @@ const strings = { type: "array", items: { type: "string" } };
 export const REQUIREMENTS_SCHEMA = {
   type: "object",
   properties: {
-    work_model: { enum: ["onsite", "hybrid", "remote", "unknown"] },
+    work_model: { type: "string", enum: ["onsite", "hybrid", "remote", "unknown"] },
     employment_type: {
+      type: "string",
       enum: ["full-time", "part-time", "student", "internship", "contract", "temporary", "unknown"],
     },
-    seniority: { enum: ["entry", "junior", "mid", "senior", "lead", "unknown"] },
+    seniority: { type: "string", enum: ["entry", "junior", "mid", "senior", "lead", "unknown"] },
     min_years_experience: { type: ["integer", "null"] },
     field: { type: "string" },
     must_have: { type: "array", items: item },
@@ -82,7 +85,9 @@ export function requirementsSummary(requirements: Requirements): string {
   return requirements.must_have.map((r) => r.text).join("; ");
 }
 
-// Fills `requirements` in one job's job.json and the CSV summary.
+// Fills `requirements` in one job's job.json and the CSV summary, then applies
+// the workspace's filters: a job not yet submitted or filtered that matches one
+// gets "rejected: <reason>" in the filter column.
 export async function fillRequirements(
   workspace: string,
   ai: AiProvider,
@@ -97,9 +102,14 @@ export async function fillRequirements(
   const requirements = await extractRequirements(ai, job);
   job.requirements = requirements;
   await writeFile(file, JSON.stringify(job, null, 2) + "\n", "utf8");
-  await saveRow(() =>
-    updateJob(jobsCsvPath(workspace), id, { requirements: requirementsSummary(requirements) }),
-  );
+  const csvPath = jobsCsvPath(workspace);
+  const row = (await readJobs(csvPath)).rows.find((r) => r.id === id);
+  const changes: Record<string, string> = { requirements: requirementsSummary(requirements) };
+  if (row && !(row.submitted ?? "").trim() && !(row.filter ?? "").trim()) {
+    const reason = filterReason((await loadConfig(workspace)).filters, job, requirements);
+    if (reason) changes.filter = reason;
+  }
+  await saveRow(() => updateJob(csvPath, id, changes));
   return requirements;
 }
 

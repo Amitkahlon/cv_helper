@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addLinks, jobJsonPath } from "./add.js";
 import { openJobLinks, prepareJobCv, showInFolder } from "./apply.js";
-import { defaultAi } from "./ai/default.js";
+import { workspaceAi } from "./ai/default.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
 import { addCv, cvChoice, cvFilePath, deleteCv, loadCvs, saveCvs } from "./cvLibrary.js";
 import { today } from "./dates.js";
@@ -13,7 +13,9 @@ import { extractJobLinks } from "./links.js";
 import { cleanProfile, cleanRoles, loadProfile, saveProfile } from "./profile.js";
 import { profileQuestions } from "./profileQuestions.js";
 import { fillRequirements } from "./requirements.js";
-import { jobsCsvPath } from "./workspace.js";
+import { cleanConfig, loadConfig, PROVIDERS, saveConfig } from "./config.js";
+import { loadSettings, saveSettings } from "./settings.js";
+import { createWorkspace, jobsCsvPath } from "./workspace.js";
 
 // The built page: vite builds it into dist/ui, next to this file once compiled.
 const UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "ui");
@@ -21,8 +23,10 @@ const UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "ui");
 // Job ids are also folder names; anything else must not reach the file system.
 const SAFE_ID = /^[A-Za-z0-9._-]+$/;
 
-export function createServer(workspace: string): express.Express {
-  const csvPath = jobsCsvPath(workspace);
+export function createServer(initialWorkspace: string): express.Express {
+  // The workspace can be switched from the Settings tab; handlers read these on each request.
+  let workspace = initialWorkspace;
+  let csvPath = jobsCsvPath(workspace);
   const app = express();
   app.use(express.json({ limit: "5mb" }));
   let adding = false; // one "add jobs" run at a time (it uses one browser profile)
@@ -113,7 +117,7 @@ export function createServer(workspace: string): express.Express {
       return;
     }
     try {
-      res.json(await fillRequirements(workspace, defaultAi(), id));
+      res.json(await fillRequirements(workspace, await workspaceAi(workspace), id));
     } catch (err) {
       res.status(err instanceof CsvLockedError ? 409 : 500).json({ error: errorMessage(err) });
     }
@@ -167,7 +171,7 @@ export function createServer(workspace: string): express.Express {
       const file = req.body as Buffer;
       const text = await cvText(file, name);
       await saveExampleCv(workspace, file, name);
-      res.json({ draft: await importCv(defaultAi(), text) });
+      res.json({ draft: await importCv(await workspaceAi(workspace), text) });
     } catch (err) {
       res.status(500).json({ error: errorMessage(err) });
     }
@@ -178,7 +182,7 @@ export function createServer(workspace: string): express.Express {
     try {
       const profile = cleanProfile(req.body?.profile);
       const roles = cleanRoles(req.body?.roles);
-      res.json({ questions: await profileQuestions(defaultAi(), profile, roles) });
+      res.json({ questions: await profileQuestions(await workspaceAi(workspace), profile, roles) });
     } catch (err) {
       res.status(500).json({ error: errorMessage(err) });
     }
@@ -220,6 +224,50 @@ export function createServer(workspace: string): express.Express {
     } catch (err) {
       res.status(400).json({ error: errorMessage(err) });
     }
+  });
+
+  // --- Settings ---
+
+  // API keys are never sent back, only whether each one is set.
+  app.get("/api/settings", async (_req, res) => {
+    const keys = (await loadSettings())?.api_keys ?? {};
+    res.json({
+      workspace,
+      config: await loadConfig(workspace),
+      providers: PROVIDERS,
+      keys_set: { anthropic: !!keys.anthropic, openai: !!keys.openai, gemini: !!keys.gemini },
+    });
+  });
+
+  // Body: { config, api_keys?: { anthropic?: "new key" | "" (= remove), ... } }
+  app.put("/api/settings", async (req, res) => {
+    const config = await saveConfig(workspace, cleanConfig(req.body?.config));
+    const changes = req.body?.api_keys;
+    if (changes && typeof changes === "object") {
+      const keys = { ...((await loadSettings())?.api_keys ?? {}) } as Record<string, string>;
+      for (const name of ["anthropic", "openai", "gemini"]) {
+        if (typeof changes[name] === "string") {
+          if (changes[name].trim()) keys[name] = changes[name].trim();
+          else delete keys[name];
+        }
+      }
+      await saveSettings({ api_keys: keys });
+    }
+    res.json({ config });
+  });
+
+  // Body: { "path": "/folder" }. Creates the workspace if needed and switches to it.
+  app.put("/api/workspace", async (req, res) => {
+    const folder = String(req.body?.path ?? "").trim();
+    if (!folder || !path.isAbsolute(folder)) {
+      res.status(400).json({ error: "Give the full path of the workspace folder" });
+      return;
+    }
+    await createWorkspace(folder);
+    await saveSettings({ workspace: folder });
+    workspace = folder;
+    csvPath = jobsCsvPath(folder);
+    res.json({ workspace });
   });
 
   app.use(express.static(UI_DIR));
