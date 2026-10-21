@@ -16,8 +16,8 @@ import { today } from "./dates.js";
 import { CsvLockedError, readJobs, updateJob, type JobRow } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
 import { linkInfo } from "./jobKey.js";
-import { cleanProfile, cleanRoles, loadProfile, saveProfile } from "./profile.js";
-import { profileQuestions } from "./profileQuestions.js";
+import { loadProfile, saveProfile } from "./profile.js";
+import { importRules, loadRules, saveRules } from "./rules.js";
 import { fillRequirements } from "./requirements.js";
 import { cleanConfig, loadConfig, PROVIDERS, saveConfig } from "./config.js";
 import { loadSettings, saveSettings } from "./settings.js";
@@ -283,12 +283,26 @@ export function createServer(initialWorkspace: string): express.Express {
     }
   });
 
-  // Body: { profile, roles } (the form as it is now, saved or not).
-  app.post("/api/profile/questions", async (req, res) => {
+  // --- CV rules walkthrough ---
+
+  // The walkthrough's saved answers (null before its first use).
+  app.get("/api/rules", async (_req, res) => {
+    res.json({ rules: await loadRules(workspace) });
+  });
+
+  // Body: { rules, skip_keywords?: [...] }. Saves rules.yaml and rules.md; the
+  // keywords are also added to the job filters.
+  app.put("/api/rules", async (req, res) => {
+    const keywords = Array.isArray(req.body?.skip_keywords) ? req.body.skip_keywords.map(String) : [];
+    res.json({ rules: await saveRules(workspace, req.body?.rules ?? {}, keywords) });
+  });
+
+  // Body: { text: "existing rules" }. Answers with a draft to review (nothing is saved).
+  app.post("/api/rules/import", async (req, res) => {
     try {
-      const profile = cleanProfile(req.body?.profile);
-      const roles = cleanRoles(req.body?.roles);
-      res.json({ questions: await profileQuestions(await workspaceAi(workspace), profile, roles) });
+      const text = String(req.body?.text ?? "").trim();
+      if (!text) throw new Error("Paste your existing rules first");
+      res.json({ rules: await importRules(await workspaceAi(workspace), text) });
     } catch (err) {
       res.status(500).json({ error: errorMessage(err) });
     }

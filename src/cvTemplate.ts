@@ -13,6 +13,18 @@ export interface TailoredContent {
   education: { index: number; notable_courses: string[] }[];
   skills: { group: string; items: string[] }[];
   certifications: number[];
+  section_order?: SectionName[]; // the order of the sections, following the person's rules
+}
+
+export const SECTION_NAMES = [
+  "experience", "projects", "education", "skills", "military_or_service", "volunteering", "certifications", "languages",
+] as const;
+export type SectionName = (typeof SECTION_NAMES)[number];
+
+// The given order first (unknown names and repeats dropped), then any section left out, in the default order.
+export function orderSections(order: readonly string[] | undefined): SectionName[] {
+  const chosen = (order ?? []).filter((name): name is SectionName => (SECTION_NAMES as readonly string[]).includes(name));
+  return [...new Set([...chosen, ...SECTION_NAMES])];
 }
 
 const escape = (text: string) =>
@@ -81,6 +93,17 @@ export function renderCvHtml(profile: Profile, content: TailoredContent, style: 
     .map((l) => [l.language, l.level].filter(Boolean).map(escape).join(" (") + (l.level ? ")" : ""))
     .join(" · ");
 
+  const sections: Record<SectionName, string> = {
+    experience: entries("Experience", profile.experience, content.experience),
+    projects: section("Projects", projects),
+    education: section("Education", education),
+    skills: section("Skills", skills),
+    military_or_service: entries("Military / national service", profile.military_or_service, content.military_or_service),
+    volunteering: entries("Volunteering", profile.volunteering, content.volunteering),
+    certifications: section("Certifications", certifications),
+    languages: section("Languages", languages ? `<div>${languages}</div>` : ""),
+  };
+
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
   @page { size: A4; margin: 13mm 15mm; }
@@ -100,13 +123,6 @@ export function renderCvHtml(profile: Profile, content: TailoredContent, style: 
   <h1 dir="auto">${escape(p.name)}</h1>
   <div class="contact">${contact}</div>
   ${content.summary ? `<div class="summary" dir="auto">${escape(content.summary)}</div>` : ""}
-  ${entries("Experience", profile.experience, content.experience)}
-  ${section("Projects", projects)}
-  ${section("Education", education)}
-  ${section("Skills", skills)}
-  ${entries("Military / national service", profile.military_or_service, content.military_or_service)}
-  ${entries("Volunteering", profile.volunteering, content.volunteering)}
-  ${section("Certifications", certifications)}
-  ${section("Languages", languages ? `<div>${languages}</div>` : "")}
+  ${orderSections(content.section_order).map((name) => sections[name]).join("\n  ")}
 </body></html>`;
 }

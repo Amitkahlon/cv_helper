@@ -77,16 +77,3 @@ export interface ProfileData {
   rules: string; // profile/rules.md
   exists: boolean; // false until profile.yaml has been saved once
 }
-
-// The profile sections the AI can ask questions about.
-export const SECTION_KEYS = [
-  "personal", "experience", "projects", "education", "skills", "certifications", "languages",
-  "military_or_service", "volunteering", "other", "preferences", "roles",
-] as const;
-export type SectionKey = (typeof SECTION_KEYS)[number];
-
-export interface ProfileQuestion {
-  section: SectionKey;
-  entry: number | null; // index in the section's list, or null for the section as a whole
-  question: string;
-}

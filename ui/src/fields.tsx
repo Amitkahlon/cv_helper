@@ -8,6 +8,7 @@ export interface Field {
   key: string;
   label: string;
   kind?: FieldKind;
+  suggestions?: string; // id of a <datalist> to suggest values from (one-line fields)
 }
 
 type Item = Record<string, any>;
@@ -16,7 +17,7 @@ export function FieldInput({ field, value, onChange }: { field: Field; value: an
   const kind = field.kind ?? "text";
   let input: ReactNode;
   if (kind === "text") {
-    input = <input dir="auto" value={value} onChange={(e) => onChange(e.target.value)} />;
+    input = <input dir="auto" list={field.suggestions} value={value} onChange={(e) => onChange(e.target.value)} />;
   } else if (kind === "long") {
     input = <textarea dir="auto" rows={3} value={value} onChange={(e) => onChange(e.target.value)} />;
   } else if (kind === "lines") {
@@ -69,31 +70,18 @@ export function ObjectEditor({
   );
 }
 
-export function Questions({ questions }: { questions: string[] }) {
-  if (questions.length === 0) return null;
-  return (
-    <ul className="questions">
-      {questions.map((q, i) => (
-        <li key={i}>{q}</li>
-      ))}
-    </ul>
-  );
-}
-
 // A list of items (jobs, projects, ...) each edited with the same fields.
 export function ListEditor({
   fields,
   items,
   onChange,
   itemLabel,
-  entryQuestions,
   extra,
 }: {
   fields: Field[];
   items: Item[];
   onChange: (items: Item[]) => void;
   itemLabel: (item: Item) => string;
-  entryQuestions: (index: number) => string[];
   extra?: (item: Item, update: (item: Item) => void) => ReactNode;
 }) {
   const update = (index: number, item: Item) => onChange(items.map((old, i) => (i === index ? item : old)));
@@ -102,7 +90,6 @@ export function ListEditor({
       {items.map((item, i) => (
         <fieldset key={i} className="entry">
           <legend dir="auto">{itemLabel(item) || `Item ${i + 1}`}</legend>
-          <Questions questions={entryQuestions(i)} />
           <ObjectEditor fields={fields} value={item} onChange={(v) => update(i, v)} />
           {extra?.(item, (v) => update(i, v))}
           <button onClick={() => onChange(items.filter((_, j) => j !== i))}>Remove</button>

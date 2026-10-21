@@ -39,6 +39,7 @@ describe("validateContent", () => {
     expect(content.experience).toEqual([{ index: 0, bullets: ["Built a Cypress framework"] }]);
     expect(content.skills).toEqual([{ group: "Testing", items: ["Cypress"] }]);
     expect(content.certifications).toEqual([]);
+    expect(content.section_order?.slice(0, 2)).toEqual(["experience", "projects"]);
     expect(warnings).toEqual([
       'Removed "Kubernetes" from the skills: it isn\'t in your profile.',
       'Removed "Rust" from the skills: it isn\'t in your profile.',
@@ -100,5 +101,20 @@ describe("checklistMarkdown", () => {
         checklist: [{ id: "R1", requirement: "Cypress", status: "met", evidence: "Unleash" }] },
     );
     expect(md).toContain("Leads with QA.\n\n## Must have\n- ✅ Cypress — Unleash\n\n## Nice to have\n- (none)");
+  });
+});
+
+describe("section order", () => {
+  it("follows the chosen order and adds missing sections at the end", async () => {
+    const { orderSections } = await import("./cvTemplate.js");
+    expect(orderSections(["education", "bogus", "education", "projects"]).slice(0, 3)).toEqual(["education", "projects", "experience"]);
+    expect(orderSections(undefined)).toHaveLength(8);
+    const html = renderCvHtml(
+      profile,
+      { summary: "", experience: [{ index: 0, bullets: [] }], military_or_service: [], volunteering: [], projects: [],
+        education: [{ index: 0, notable_courses: [] }], skills: [], certifications: [], section_order: ["education", "experience"] },
+      cleanConfig({}).cv,
+    );
+    expect(html.indexOf(">Education<")).toBeLessThan(html.indexOf(">Experience<"));
   });
 });

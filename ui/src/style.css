@@ -109,7 +109,6 @@ tr.checked td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .entry { padding: 10px 14px 12px; margin: 10px 0; }
 .entry legend { font-weight: 600; padding: 0 6px; }
 .entry > button { margin-top: 8px; }
-.questions { background: var(--warning-soft); border-radius: var(--radius); padding: 6px 10px 6px 28px; margin: 6px 0; }
 .rules { min-height: 160px; }
 
 /* --- Checklist --- */
@@ -139,3 +138,21 @@ tr.checked td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .action-form { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; }
 button.danger { color: var(--danger); border-color: #f1c4c0; }
 button.danger:hover:not(:disabled) { background: #fdecea; }
+
+/* --- Walkthroughs --- */
+.walkthroughs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+.walkthroughs .card { margin: 0; }
+.wizard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.wizard-head { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.wizard-head .hint { margin-left: auto; }
+.wizard-steps { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: #fafbfc; }
+.wizard-steps button { border: none; background: none; padding: 4px 8px; color: var(--muted); }
+.wizard-steps button.current { color: var(--accent); font-weight: 600; background: var(--accent-soft); }
+.wizard-steps button.done { color: var(--text); }
+.step-number { display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background: var(--border); font-size: 11px; margin-right: 2px; }
+.wizard-steps .current .step-number { background: var(--accent); color: #fff; }
+.wizard-body { padding: 4px 16px 16px; }
+.wizard-intro { max-width: 760px; margin-bottom: 12px; }
+.wizard-foot { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface); }
+.rules-preview { white-space: pre-wrap; font: 13px/1.5 ui-monospace, monospace; }
+label.upload.card { display: block; }

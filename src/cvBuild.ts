@@ -8,7 +8,7 @@ import { arrayOf, object, STRING, STRINGS } from "./ai/schema.js";
 import { loadConfig } from "./config.js";
 import { cvText } from "./cvImport.js";
 import { cvChoice, cvFileName, cvFilePath, loadCvs } from "./cvLibrary.js";
-import { renderCvHtml, type TailoredContent } from "./cvTemplate.js";
+import { orderSections, renderCvHtml, SECTION_NAMES, type TailoredContent } from "./cvTemplate.js";
 import type { ChecklistItem, CvReport } from "./cvTypes.js";
 import { readJobs, updateJob, type JobRow } from "./jobsCsv.js";
 import { loadProfile } from "./profile.js";
@@ -35,6 +35,7 @@ const TAILOR_SCHEMA = object({
   education: arrayOf(object({ index: INT, notable_courses: STRINGS })),
   skills: arrayOf(object({ group: STRING, items: STRINGS })),
   certifications: arrayOf(INT),
+  section_order: arrayOf({ type: "string", enum: [...SECTION_NAMES] }),
   note: STRING,
   adapted: STRINGS,
   checklist: arrayOf(CHECK),
@@ -54,6 +55,8 @@ What to return:
 - skills: groups of skills taken from the profile, most relevant first. Only skills the profile lists.
 - certifications: indexes of the relevant ones.
 - summary: 2-3 lines aimed at this job.
+- section_order: the order of the CV's sections. Follow the person's rules for this kind of job;
+  without such a rule, put what matters most for this job first.
 - It must fit on one page: about 450 words in all.
 - note: one line saying what this CV leads with.
 - adapted: 2-5 short notes on what you emphasised or changed for this job.
@@ -175,6 +178,7 @@ export function validateContent(profile: Profile, raw: TailoredContent): { conte
       certifications: [...new Set(raw.certifications ?? [])].filter(
         (i) => Number.isInteger(i) && i >= 0 && i < profile.certifications.length,
       ),
+      section_order: orderSections(raw.section_order),
     },
     warnings,
   };
