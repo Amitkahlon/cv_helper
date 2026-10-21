@@ -3,12 +3,15 @@
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
+import open from "open";
 import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
+import { createServer } from "./server.js";
 import { loadSettings, saveSettings } from "./settings.js";
 import { createWorkspace, jobsCsvPath, workspaceExists } from "./workspace.js";
 
-const USAGE = "Usage: cvhelper <init|links>";
+const USAGE = "Usage: cvhelper <init|links|ui>";
+const UI_PORT = 4321;
 
 const [command] = process.argv.slice(2);
 
@@ -18,6 +21,9 @@ switch (command) {
     break;
   case "links":
     await runLinks();
+    break;
+  case "ui":
+    await runUi();
     break;
   default:
     console.error(USAGE);
@@ -80,6 +86,15 @@ function expandHome(p: string): string {
     return path.join(os.homedir(), p.slice(1));
   }
   return p;
+}
+
+async function runUi(): Promise<void> {
+  const workspace = await requireWorkspace();
+  const url = `http://127.0.0.1:${UI_PORT}`;
+  createServer(workspace).listen(UI_PORT, "127.0.0.1", () => {
+    console.log(`cvhelper UI running at ${url} (Ctrl+C to stop)`);
+    void open(url);
+  });
 }
 
 async function runLinks(): Promise<void> {
