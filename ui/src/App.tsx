@@ -6,15 +6,22 @@ const COLUMNS = [
   ["company", "Company"],
   ["location", "Location"],
   ["score", "Score"],
+  ["cv_status", "CV"],
   ["filter", "Filter"],
   ["posted_date", "Posted"],
 ] as const;
 
+type ColumnKey = (typeof COLUMNS)[number][0];
+
 const isSubmitted = (job: JobRow) => (job.submitted ?? "").trim() !== "";
+const isRejected = (job: JobRow) => (job.filter ?? "").trim() !== "";
 
 export function App() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [search, setSearch] = useState("");
+  const [notSubmittedOnly, setNotSubmittedOnly] = useState(false);
+  const [hideRejected, setHideRejected] = useState(false);
+  const [sort, setSort] = useState<{ key: ColumnKey; desc: boolean } | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -31,48 +38,83 @@ export function App() {
     }
   }
 
+  // Click a header to sort by it; click again to reverse.
+  function sortBy(key: ColumnKey) {
+    setSort((current) => (current?.key === key ? { key, desc: !current.desc } : { key, desc: false }));
+  }
+
   const query = search.trim().toLowerCase();
   const shown = jobs.filter(
-    (job) => !query || COLUMNS.some(([key]) => (job[key] ?? "").toLowerCase().includes(query)),
+    (job) =>
+      (!notSubmittedOnly || !isSubmitted(job)) &&
+      (!hideRejected || !isRejected(job)) &&
+      (!query || COLUMNS.some(([key]) => (job[key] ?? "").toLowerCase().includes(query))),
   );
+  if (sort) {
+    const direction = sort.desc ? -1 : 1;
+    shown.sort(
+      (a, b) =>
+        (a[sort.key] ?? "").localeCompare(b[sort.key] ?? "", undefined, { numeric: true }) * direction,
+    );
+  }
 
   return (
     <main>
       <h1>Jobs</h1>
-      <input
-        type="search"
-        placeholder="Search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="controls">
+        <input
+          type="search"
+          placeholder="Search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <label>
+          <input
+            type="checkbox"
+            checked={notSubmittedOnly}
+            onChange={(e) => setNotSubmittedOnly(e.target.checked)}
+          />
+          Not submitted
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={hideRejected}
+            onChange={(e) => setHideRejected(e.target.checked)}
+          />
+          Hide rejected
+        </label>
+      </div>
       {error && <p className="error">{error}</p>}
       <table>
         <thead>
           <tr>
             <th>Submitted</th>
             {COLUMNS.map(([key, label]) => (
-              <th key={key}>{label}</th>
+              <th key={key} className="sortable" onClick={() => sortBy(key)}>
+                {label}
+                {sort?.key === key ? (sort.desc ? " ▼" : " ▲") : ""}
+              </th>
             ))}
-            <th>Link</th>
+            <th>Link 1</th>
+            <th>Link 2</th>
           </tr>
         </thead>
         <tbody>
-          {shown.map((job) => {
-            const link = job.job_link || job.agency_link;
-            return (
-              <tr key={job.id}>
-                <td>
-                  <input type="checkbox" checked={isSubmitted(job)} onChange={() => toggle(job)} />
+          {shown.map((job) => (
+            <tr key={job.id}>
+              <td>
+                <input type="checkbox" checked={isSubmitted(job)} onChange={() => toggle(job)} />
+              </td>
+              {COLUMNS.map(([key]) => (
+                <td key={key} dir="auto" className={key === "filter" ? "clip" : undefined} title={job[key]}>
+                  {job[key]}
                 </td>
-                {COLUMNS.map(([key]) => (
-                  <td key={key} dir="auto">
-                    {job[key]}
-                  </td>
-                ))}
-                <td>{link && <a href={link} target="_blank" rel="noreferrer">open</a>}</td>
-              </tr>
-            );
-          })}
+              ))}
+              <td>{job.job_link && <a href={job.job_link} target="_blank" rel="noreferrer">link 1</a>}</td>
+              <td>{job.agency_link && <a href={job.agency_link} target="_blank" rel="noreferrer">link 2</a>}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
       <p>

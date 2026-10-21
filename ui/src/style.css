@@ -3,3 +3,6 @@ table { border-collapse: collapse; width: 100%; margin-top: 12px; }
 th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: start; }
 th { background: #f3f3f3; }
 .error { color: #b00; }
+.controls { display: flex; gap: 12px; align-items: center; }
+.sortable { cursor: pointer; }
+.clip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
