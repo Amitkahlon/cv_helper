@@ -31,7 +31,10 @@ export async function fetchJobs(): Promise<JobRow[]> {
   return (await response.json()).rows;
 }
 
-export async function updateJob(id: string, changes: { submitted?: boolean; cv_choice?: string }): Promise<void> {
+export async function updateJob(
+  id: string,
+  changes: { submitted?: boolean; cv_choice?: string; note?: string },
+): Promise<void> {
   const response = await fetch(`/api/jobs/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -55,6 +58,22 @@ export async function extractRequirements(id: string): Promise<JobDetails["requi
   const response = await fetch(`/api/jobs/${encodeURIComponent(id)}/requirements`, { method: "POST" });
   if (!response.ok) throw new Error(await errorText(response));
   return response.json();
+}
+
+// Apply wizard: copy the chosen CV into the job folder (answers with its full path),
+// the same and show it selected in the file manager, or open the job's links.
+export const prepareCv = (id: string) => postForPath(`/api/jobs/${encodeURIComponent(id)}/prepare-cv`);
+export const showCv = (id: string) => postForPath(`/api/jobs/${encodeURIComponent(id)}/show-cv`);
+
+export async function openLinks(id: string): Promise<void> {
+  const response = await fetch(`/api/jobs/${encodeURIComponent(id)}/open-links`, { method: "POST" });
+  if (!response.ok) throw new Error(await errorText(response));
+}
+
+async function postForPath(url: string): Promise<string> {
+  const response = await fetch(url, { method: "POST" });
+  if (!response.ok) throw new Error(await errorText(response));
+  return (await response.json()).path;
 }
 
 // Sends pasted text to the server and calls onEvent for each progress line it sends back.

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addLinks, jobJsonPath } from "./add.js";
+import { openJobLinks, prepareJobCv, showInFolder } from "./apply.js";
 import { defaultAi } from "./ai/default.js";
 import { cvText, importCv, saveExampleCv } from "./cvImport.js";
 import { addCv, cvChoice, cvFilePath, deleteCv, loadCvs, saveCvs } from "./cvLibrary.js";
@@ -30,9 +31,15 @@ export function createServer(workspace: string): express.Express {
     res.json(await readJobs(csvPath));
   });
 
-  // Body: any of { "submitted": true | false, "cv_choice": "predefined: <file>" | "" }
+  // Body: any of { "submitted": true | false, "cv_choice": "predefined: <file>" | "",
+  // "note": "text to add to the notes column" }
   app.patch("/api/jobs/:id", async (req, res) => {
     const changes: JobRow = {};
+    const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
+    if (note) {
+      const row = (await readJobs(csvPath)).rows.find((r) => r.id === req.params.id);
+      changes.notes = [row?.notes, `${today()}: ${note}`].filter(Boolean).join("; ");
+    }
     if (typeof req.body?.submitted === "boolean") {
       changes.submitted = req.body.submitted ? "YES" : "";
       changes.submitted_date = req.body.submitted ? today() : "";
@@ -50,6 +57,37 @@ export function createServer(workspace: string): express.Express {
       res.json({ ok: true });
     } catch (err) {
       res.status(err instanceof CsvLockedError ? 409 : 500).json({ error: errorMessage(err) });
+    }
+  });
+
+  // --- Apply wizard ---
+
+  // Copies the chosen CV into the job folder; answers with its full path.
+  app.post("/api/jobs/:id/prepare-cv", async (req, res) => {
+    try {
+      res.json({ path: await prepareJobCv(workspace, req.params.id) });
+    } catch (err) {
+      res.status(400).json({ error: errorMessage(err) });
+    }
+  });
+
+  // Same, then opens the file manager with the CV selected.
+  app.post("/api/jobs/:id/show-cv", async (req, res) => {
+    try {
+      const file = await prepareJobCv(workspace, req.params.id);
+      await showInFolder(file);
+      res.json({ path: file });
+    } catch (err) {
+      res.status(400).json({ error: errorMessage(err) });
+    }
+  });
+
+  // Opens the job's links in the user's normal browser.
+  app.post("/api/jobs/:id/open-links", async (req, res) => {
+    try {
+      res.json({ opened: await openJobLinks(workspace, req.params.id) });
+    } catch (err) {
+      res.status(400).json({ error: errorMessage(err) });
     }
   });
 

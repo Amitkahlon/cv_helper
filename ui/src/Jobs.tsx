@@ -20,7 +20,7 @@ type ColumnKey = (typeof COLUMNS)[number][0];
 const isSubmitted = (job: JobRow) => (job.submitted ?? "").trim() !== "";
 const isRejected = (job: JobRow) => (job.filter ?? "").trim() !== "";
 
-export function JobsPage({ cvs }: { cvs: CvEntry[] }) {
+export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [search, setSearch] = useState("");
   const [notSubmittedOnly, setNotSubmittedOnly] = useState(false);
@@ -30,9 +30,10 @@ export function JobsPage({ cvs }: { cvs: CvEntry[] }) {
   const [error, setError] = useState("");
 
   const reload = () => fetchJobs().then(setJobs, (err) => setError(String(err)));
+  // Reload whenever the page is shown: the Apply wizard may have changed jobs.
   useEffect(() => {
-    reload();
-  }, []);
+    if (active) reload();
+  }, [active]);
 
   async function toggle(job: JobRow) {
     setError("");

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { ApplyPage } from "./Apply";
 import { CvsPage } from "./Cvs";
 import { fetchCvs, type CvEntry } from "./cvsApi";
 import { JobsPage } from "./Jobs";
 import { ProfilePage } from "./Profile";
 
-const PAGES = { jobs: "Jobs", profile: "Profile", cvs: "CVs" } as const;
+const PAGES = { jobs: "Jobs", apply: "Apply", profile: "Profile", cvs: "CVs" } as const;
 type Page = keyof typeof PAGES;
 
 export function App() {
@@ -27,7 +28,10 @@ export function App() {
       </nav>
       <h1>{PAGES[page]}</h1>
       <div hidden={page !== "jobs"}>
-        <JobsPage cvs={cvs} />
+        <JobsPage cvs={cvs} active={page === "jobs"} />
+      </div>
+      <div hidden={page !== "apply"}>
+        <ApplyPage cvs={cvs} active={page === "apply"} />
       </div>
       <div hidden={page !== "profile"}>
         <ProfilePage />
