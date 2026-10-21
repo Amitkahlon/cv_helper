@@ -1,12 +1,15 @@
 import express from "express";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addLinks, jobJsonPath } from "./add.js";
 import { defaultAi } from "./ai/default.js";
+import { cvText, importCv, saveExampleCv } from "./cvImport.js";
 import { today } from "./dates.js";
 import { CsvLockedError, readJobs, updateJob } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
+import { cleanProfile, cleanRoles, loadProfile, profileDir, safeFileName, saveProfile } from "./profile.js";
+import { profileQuestions } from "./profileQuestions.js";
 import { fillRequirements } from "./requirements.js";
 import { jobsCsvPath } from "./workspace.js";
 
@@ -95,6 +98,56 @@ export function createServer(workspace: string): express.Express {
       adding = false;
       res.end();
     }
+  });
+
+  // --- Profile (plan section 6) ---
+
+  app.get("/api/profile", async (_req, res) => {
+    res.json(await loadProfile(workspace));
+  });
+
+  // Body: { profile, roles, rules }. Answers with the saved (cleaned) data.
+  app.put("/api/profile", async (req, res) => {
+    res.json(await saveProfile(workspace, req.body ?? {}));
+  });
+
+  // Body: the CV file itself; ?name=<original file name>. Answers with a draft
+  // profile for review: the profile itself is not changed.
+  app.post("/api/profile/import", express.raw({ type: "*/*", limit: "20mb" }), async (req, res) => {
+    const name = String(req.query.name ?? "");
+    try {
+      const file = req.body as Buffer;
+      const text = await cvText(file, name);
+      await saveExampleCv(workspace, file, name);
+      res.json({ draft: await importCv(defaultAi(), text) });
+    } catch (err) {
+      res.status(500).json({ error: errorMessage(err) });
+    }
+  });
+
+  // Body: { profile, roles } (the form as it is now, saved or not).
+  app.post("/api/profile/questions", async (req, res) => {
+    try {
+      const profile = cleanProfile(req.body?.profile);
+      const roles = cleanRoles(req.body?.roles);
+      res.json({ questions: await profileQuestions(defaultAi(), profile, roles) });
+    } catch (err) {
+      res.status(500).json({ error: errorMessage(err) });
+    }
+  });
+
+  // Body: a predefined CV file for a target role; ?name=<file name>. Saved in
+  // profile/cvs/; answers with its path relative to profile/.
+  app.post("/api/profile/cvs", express.raw({ type: "*/*", limit: "20mb" }), async (req, res) => {
+    const name = safeFileName(String(req.query.name ?? ""));
+    if (!/\.(pdf|docx)$/.test(name)) {
+      res.status(400).json({ error: "Predefined CVs must be PDF or DOCX files" });
+      return;
+    }
+    const dir = path.join(profileDir(workspace), "cvs");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, name), req.body as Buffer);
+    res.json({ file: `cvs/${name}` });
   });
 
   app.use(express.static(UI_DIR));

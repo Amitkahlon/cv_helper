@@ -76,7 +76,7 @@ export async function addJobs(text: string, onEvent: (event: AddEvent) => void):
   }
 }
 
-async function errorText(response: Response): Promise<string> {
+export async function errorText(response: Response): Promise<string> {
   const body = await response.json().catch(() => ({}));
   return body.error ?? `HTTP ${response.status}`;
 }

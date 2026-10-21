@@ -15,3 +15,14 @@ tr.selected { background: #eef3ff; }
 .details { position: sticky; top: 16px; flex: 0 0 40%; max-height: calc(100vh - 32px); overflow: auto; border: 1px solid #ccc; padding: 8px 12px; margin-top: 12px; }
 .details .close { float: right; }
 .description { white-space: pre-wrap; }
+nav { display: flex; gap: 8px; }
+nav .current { font-weight: bold; }
+.profile { max-width: 900px; }
+.toolbar { position: sticky; top: 0; background: #fff; padding: 8px 0; border-bottom: 1px solid #ccc; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; z-index: 1; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.field { display: flex; flex-direction: column; font-size: 14px; }
+.field input, .field textarea, .rules { font: inherit; width: 100%; box-sizing: border-box; }
+.field:has(textarea) { grid-column: 1 / -1; }
+.entry { border: 1px solid #ccc; margin: 8px 0; }
+.questions { background: #fff8dc; padding: 6px 6px 6px 24px; margin: 4px 0; }
+.hint { color: #555; }

@@ -4,10 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import open from "open";
+import { readFile, writeFile } from "node:fs/promises";
+import YAML from "yaml";
 import { addLinks } from "./add.js";
 import { defaultAi } from "./ai/default.js";
+import { cvText, importCv, saveExampleCv } from "./cvImport.js";
 import { CsvLockedError } from "./jobsCsv.js";
 import { extractJobLinks } from "./links.js";
+import { loadProfile, profileDir, saveProfile } from "./profile.js";
 import { fillRequirements, jobsNeedingRequirements } from "./requirements.js";
 import { createServer } from "./server.js";
 import { loadSettings, saveSettings } from "./settings.js";
@@ -17,6 +21,7 @@ const USAGE = `Usage: cvhelper <command>
   init                         choose the workspace folder
   add                          paste messages or links; adds the jobs
   links                        paste messages; lists the job links in them
+  profile import <cv file>     fill the profile from a PDF or DOCX CV
   requirements [ids] [--limit N] [--all]
                                extract requirements with AI (default: jobs not
                                submitted or rejected that don't have them yet)
@@ -31,6 +36,9 @@ switch (command) {
     break;
   case "add":
     await runAdd();
+    break;
+  case "profile":
+    await runProfile(commandArgs);
     break;
   case "requirements":
     await runRequirements(commandArgs);
@@ -144,6 +152,35 @@ async function runAdd(): Promise<void> {
   if (loggedOut) {
     console.log("WARNING: HireMe answered as logged out, so company names and apply links are missing.");
   }
+}
+
+// cvhelper profile import <cv file>: fills profile.yaml from a CV. If a profile
+// already exists, the import goes to profile.imported.yaml instead, to compare.
+async function runProfile(args: string[]): Promise<void> {
+  const [action, file] = args;
+  if (action !== "import" || !file) {
+    console.error("Usage: cvhelper profile import <cv.pdf|cv.docx>");
+    process.exitCode = 1;
+    return;
+  }
+  const workspace = await requireWorkspace();
+  const content = await readFile(file);
+  const text = await cvText(content, file);
+  const ai = defaultAi();
+  console.log(`Reading ${path.basename(file)} with ${ai.name}...`);
+  const draft = await importCv(ai, text);
+  await saveExampleCv(workspace, content, file);
+
+  const current = await loadProfile(workspace);
+  if (current.exists) {
+    const target = path.join(profileDir(workspace), "profile.imported.yaml");
+    await writeFile(target, YAML.stringify(draft), "utf8");
+    console.log(`You already have a profile, so the import was saved to ${target} to compare.`);
+  } else {
+    await saveProfile(workspace, { profile: draft, roles: current.roles, rules: current.rules });
+    console.log(`Profile saved to ${path.join(profileDir(workspace), "profile.yaml")}. Review it in the UI (Profile page).`);
+  }
+  console.log(`${draft.experience.length} jobs, ${draft.projects.length} projects, ${draft.education.length} education entries.`);
 }
 
 // cvhelper requirements [ids...] [--limit N] [--all]
