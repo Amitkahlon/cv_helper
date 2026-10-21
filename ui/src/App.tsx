@@ -17,6 +17,13 @@ export function App() {
   const [cvs, setCvs] = useState<CvEntry[]>([]); // the CV library, shared by the pages
 
   const [roles, setRoles] = useState<string[]>([]); // target role names, for tailored CV choices
+  const [workspace, setWorkspace] = useState("");
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => setWorkspace(s.workspace ?? ""), () => {});
+  }, []);
 
   useEffect(() => {
     fetchCvs().then(setCvs, () => {});
@@ -41,10 +48,13 @@ export function App() {
             </button>
           ))}
         </nav>
+        <span className="workspace" title={`Workspace: ${workspace}`}>
+          {workspace.split(/[\\/]/).filter(Boolean).pop()}
+        </span>
       </header>
       <main className="content">
         <div hidden={page !== "jobs"}>
-          <JobsPage cvs={cvs} active={page === "jobs"} />
+          <JobsPage cvs={cvs} active={page === "jobs"} goTo={setPage} />
         </div>
         <div hidden={page !== "apply"}>
           <ApplyPage cvs={cvs} active={page === "apply"} />

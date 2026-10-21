@@ -12,7 +12,7 @@ export interface ColumnDef {
 }
 
 export const KNOWN_COLUMNS: ColumnDef[] = [
-  { key: "submitted", label: "Submitted", width: 90, kind: "submitted" },
+  { key: "submitted", label: "Sent", width: 64, kind: "submitted" },
   { key: "title", label: "Title", width: 220 },
   { key: "company", label: "Company", width: 160 },
   { key: "location", label: "Location", width: 150 },

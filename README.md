@@ -34,9 +34,9 @@ To look around first with made-up data: `cvhelper demo` and then `cvhelper ui --
 
 | Tab | What it does |
 |---|---|
-| **Jobs** | The tracker: sort, filter, search, tick **Submitted**. **Add jobs**: paste messages or links. **Create CVs**: build CVs for every open job. Click a job for its details, requirements, CV and checklist, and the dates of calls, interviews, rejections and offers. |
+| **Jobs** | The tracker, newest jobs first: sort, filter, search, tick **Sent**; choose columns and drag their edges to resize. **Add jobs**: paste messages or links. **Select rows** (Shift-click for a range) to act on many at once: Create CVs (each job's own CV choice, or e.g. tailored for one role), mark submitted, skip, restore, set or suggest the CV choice, extract requirements, delete. Click a job for its details, requirements, CV and checklist, and the dates of calls, interviews, rejections and offers. |
 | **Apply** | A wizard through the jobs you haven't applied to: opens the job's site, puts the CV path on the clipboard, shows the CV selected in its folder, shows which requirements you meet. Mark submitted or skip with a note. |
-| **Profile** | Your facts, the only source for CVs: import your CV (PDF/DOCX), answer the AI's follow-up questions, set target roles and your CV rules. |
+| **Profile** | Your facts, the only source for CVs. The **profile walkthrough** goes through it step by step (import your CV first to fill it); the **CV rules walkthrough** sets the rules every CV follows (length, language, tricky skills, what to leave out and the section order per kind of job) and can start from rules you already have. Both work on a copy and save only at the end. |
 | **CVs** | Your ready-made CVs: upload several, give each a category (a target role's name links it to that role) and say what it's for. |
 | **Stats** | Response rate, interviews, offers, days to first call, by source and by month. |
 | **Settings** | AI provider and model, API keys, job filters, the CV's font and colour, switching workspaces. |
@@ -75,9 +75,17 @@ cvhelper ui [--workspace <folder>]
 cvhelper demo [folder]
 ```
 
-## Chrome extension
+## Chrome extensions
 
-The extension puts the job's CV straight into an application form's upload field, which a web page
+There are two; load either (or both) from `chrome://extensions` → Developer mode → Load unpacked.
+
+- **`extension-poc/`** (auto-attach): click a site's upload-resume button and the CV of the job you're
+  applying to right now (the Apply tab's current job, or the one picked in its popup) is attached instead
+  of the file picker opening. Alt+click for the normal picker; only your own clicks attach the CV. See
+  `extension-poc/README.md`.
+- **`extension/`** (on demand): the steps below.
+
+The on-demand extension puts the job's CV straight into an application form's upload field, which a web page
 can't do by itself.
 
 1. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose the

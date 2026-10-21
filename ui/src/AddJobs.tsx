@@ -2,7 +2,7 @@ import { useState } from "react";
 import { addJobs, type AddEvent } from "./api";
 
 // A box to paste WhatsApp messages or links into; shows progress as each job is read.
-export function AddJobs({ onAdded }: { onAdded: () => void }) {
+export function AddJobs({ onAdded, startOpen = false }: { onAdded: () => void; startOpen?: boolean }) {
   const [text, setText] = useState("");
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -50,7 +50,7 @@ export function AddJobs({ onAdded }: { onAdded: () => void }) {
   }
 
   return (
-    <details className="box">
+    <details className="box" open={startOpen || undefined}>
       <summary>Add jobs</summary>
       <textarea
         rows={8}

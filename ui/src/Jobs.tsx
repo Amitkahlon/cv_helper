@@ -5,6 +5,7 @@ import { ColumnChooser } from "./ColumnChooser";
 import { CvChoice } from "./CvChoice";
 import type { CvEntry } from "./cvsApi";
 import { Details } from "./Details";
+import { GettingStarted } from "./GettingStarted";
 import { allColumns, useColumnPrefs, type ColumnDef } from "./jobColumns";
 import { SelectionBar } from "./SelectionBar";
 import { useSelection } from "./selection";
@@ -18,7 +19,7 @@ const SELECT_WIDTH = 36;
 type Sort = { key: string; desc: boolean };
 const DEFAULT_SORT: Sort = { key: "first_seen", desc: true }; // newest added first
 
-export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
+export function JobsPage({ cvs, active, goTo }: { cvs: CvEntry[]; active: boolean; goTo: (page: "profile" | "apply") => void }) {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [csvColumns, setCsvColumns] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -89,6 +90,14 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
     return job ? `${job.title}${job.company ? ` (${job.company})` : ""}` : id;
   };
 
+  // Escape closes the details panel.
+  useEffect(() => {
+    if (!openId) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpenId(null);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [openId]);
+
   // The header checkbox shows "some selected" as a dash.
   const headerBox = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -116,7 +125,11 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
     const value = job[column.key] ?? "";
     switch (column.kind) {
       case "submitted":
-        return <input type="checkbox" aria-label="Submitted" checked={isSubmitted(job)} onChange={() => toggleSubmitted(job)} />;
+        return (
+          <label className="sent" title={isSubmitted(job) ? `Submitted ${job.submitted_date ?? ""}` : "Mark as submitted"}>
+            <input type="checkbox" aria-label="Submitted" checked={isSubmitted(job)} onChange={() => toggleSubmitted(job)} />
+          </label>
+        );
       case "cv_choice":
         return <CvChoice cvs={cvs} value={value} onChange={(choice) => chooseCv(job, choice)} />;
       case "link":
@@ -126,8 +139,24 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
           </a>
         ) : null;
       default:
-        return value;
+        return formatted(column.key, value);
     }
+  }
+
+  // Statuses as small coloured labels, so they can be read at a glance.
+  function formatted(key: string, value: string) {
+    if (!value) return null;
+    if (key === "cv_status") {
+      if (value === "built") return <span className="chip ok">CV ready</span>;
+      if (value.startsWith("error")) return <span className="chip bad" title={value}>CV error</span>;
+    }
+    if (key === "score") {
+      const [met, total] = value.split("/").map(Number);
+      const ratio = total ? met / total : 0;
+      return <span className={`chip ${ratio >= 0.75 ? "ok" : ratio >= 0.5 ? "warn" : "bad"}`}>{value}</span>;
+    }
+    if (key === "filter") return <span className="chip muted">{value.replace(/^rejected:\s*/, "")}</span>;
+    return value;
   }
 
   const tableWidth = SELECT_WIDTH + visible.reduce((sum, c) => sum + prefs.widthOf(c), 0);
@@ -135,7 +164,8 @@ export function JobsPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) {
 
   return (
     <>
-      <AddJobs onAdded={reload} />
+      <GettingStarted jobs={jobs} goTo={goTo} />
+      <AddJobs onAdded={reload} startOpen={jobs.length === 0} />
       <div className="controls">
         <input type="search" placeholder="Search title, company, notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <label>

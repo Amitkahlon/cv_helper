@@ -139,7 +139,8 @@ export function ApplyPage({ cvs, active }: { cvs: CvEntry[]; active: boolean }) 
   // --- Start screen ---
   if (!queue) {
     return (
-      <div className="page">
+      <div className="page card apply-start">
+        <h2>Apply to your open jobs</h2>
         <p>
           {waiting === null ? "Counting jobs..." : `${waiting} job(s) not submitted and not rejected, newest first.`}
         </p>
