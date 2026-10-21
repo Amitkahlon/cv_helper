@@ -10,6 +10,13 @@ read it before writing scrapers or the apply step.
 
 Build it slowly: one phase at a time (section 8), each one usable on its own before the next starts.
 
+**Status (2026-10-21):** phases 0–8 are built (on the `ui` branch): adding jobs from LinkedIn, HireMe and
+any job page; the web UI (Jobs, Apply, Profile, CVs, Stats, Settings); the AI layer with six providers;
+profile import, follow-up questions and target roles; a CV library; tailored and predefined CVs with
+checklist and score; the apply wizard; the Chrome extension; filters, statistics and a demo workspace.
+See the README for how to use it. Still open: sharing scraped postings between users, description-based
+repost detection, form auto-fill in the extension, and the open decisions in section 10.
+
 ---
 
 ## 1. Goals and scope
