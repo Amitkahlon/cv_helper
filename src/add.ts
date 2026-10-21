@@ -7,11 +7,14 @@ import { jobIdFor, knownKeys, linkInfo, type LinkInfo } from "./jobKey.js";
 import { addJobs, readJobs, type JobRow } from "./jobsCsv.js";
 import { browserProfileDir } from "./settings.js";
 import { fetchHiremeJob, openHiremeBrowser } from "./sources/hireme.js";
+import { fetchGenericJob } from "./sources/generic.js";
 import { fetchLinkedinJob } from "./sources/linkedin.js";
+import { workspaceAi } from "./ai/default.js";
+import type { AiProvider } from "./ai/provider.js";
 import { jobsCsvPath } from "./workspace.js";
 
 // Pause after each job, per site (LinkedIn rate-limits quickly, lesson 9.10).
-const PAUSE_MS: Record<string, number> = { hireme: 1000, linkedin: 2000 };
+const PAUSE_MS: Record<string, number> = { hireme: 1000, linkedin: 2000, other: 1000 };
 
 // What goes into jobs/<id>/job.json (plan section 5).
 export interface JobRecord extends Omit<ScrapedJob, "employer_link"> {
@@ -56,6 +59,8 @@ export async function addLinks(
 
   let browser: { context: BrowserContext; page: Page } | undefined;
   let browserError = ""; // set if the HireMe browser couldn't be opened; later HireMe links fail fast
+  let ai: Promise<AiProvider> | undefined; // only needed for pages without job data
+  const getAi = () => (ai ??= workspaceAi(workspace));
   let hiremeReads = 0;
   let loggedOutReads = 0;
 
@@ -66,8 +71,9 @@ export async function addLinks(
         report({ link, outcome: "duplicate" });
         continue;
       }
-      const siteJobId = info.siteJobId;
-      if (!siteJobId || (info.site !== "hireme" && info.site !== "linkedin")) {
+      const siteJobId = info.siteJobId ?? "";
+      const isPage = /^https?:\/\//i.test(link);
+      if ((info.site === "other" && !isPage) || (info.site !== "other" && !siteJobId)) {
         report({ link, outcome: "unsupported" });
         continue;
       }
@@ -90,9 +96,13 @@ export async function addLinks(
           if (result.loggedOut) loggedOutReads++;
           jobLink = job.employer_link;
           agencyLink = `https://hiremetech.com/job/${siteJobId}`;
-        } else {
+        } else if (info.site === "linkedin") {
           job = await fetchLinkedinJob(siteJobId);
           jobLink = `https://www.linkedin.com/jobs/view/${siteJobId}`;
+          agencyLink = null;
+        } else {
+          job = await fetchGenericJob(link, getAi);
+          jobLink = link;
           agencyLink = null;
         }
       } catch (err) {
